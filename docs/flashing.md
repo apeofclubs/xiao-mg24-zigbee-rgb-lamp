@@ -18,7 +18,7 @@ Engine. **Irreversible operations: none.**
     `https://siliconlabs.github.io/arduino/package_arduinosilabs_index.json`, board "XIAO MG24") and use its bundled
     OpenOCD (`0.12.0-arduino1-static`). Find it with
     `find ~/.arduino15 ~/Library/Arduino15 -path '*openocd*' -name openocd -type f 2>/dev/null` (Windows:
-    `%LOCALAPPDATA%\Arduino15\packages\SiliconLabs\tools\openocd\`);
+    `%LOCALAPPDATA%\Arduino15\packages\SiliconLabs\tools\openocd\`, see §6.1);
   * or the OpenOCD shipped in Seeed's erase package (see §5).
 * In the commands below, `-s <scripts>` is that OpenOCD's `scripts` directory (it must contain
   `interface/cmsis-dap.cfg` and `target/efm32s2_g23.cfg`). This is the configuration Seeed's script and the Arduino
@@ -32,6 +32,8 @@ Engine. **Irreversible operations: none.**
 USB-C cable to the XIAO; the battery may stay disconnected. A CMSIS-DAP device and a serial port appear.
 
 ## 2. Backup (read-only)
+
+On Windows, use the PowerShell commands in §6 instead.
 
 ```sh
 openocd -s <scripts> -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg \
@@ -105,6 +107,68 @@ thread on the issue: https://forum.seeedstudio.com/t/deepsleep-bricks-xiao-mg24/
 * With no CMSIS-DAP device and no serial port, the problem is on the SAMD11 (USB) side, not in the EFR32 firmware:
   the EFR32 firmware cannot disable the SAMD11. Report it on the ticket with the output of `lsusb` (Linux) or the
   Device Manager entry (Windows), and do nothing else.
+
+## 6. Windows (PowerShell) variant of §0, §2, §3 and §5.2
+
+Same operations, same addresses, nothing more is written. Open **PowerShell** (not `cmd`) and keep it open: the
+variables below are lost when the window closes, so set them again in a new window.
+
+### 6.1 Find OpenOCD (read-only)
+```powershell
+$root = "$env:LOCALAPPDATA\Arduino15\packages\SiliconLabs\tools\openocd"
+Get-ChildItem $root -Recurse -Filter openocd.exe | Select-Object -ExpandProperty FullName
+Get-ChildItem $root -Recurse -Filter efm32s2_g23.cfg | Select-Object -ExpandProperty FullName
+```
+Each command should print one path. If it prints several (several OpenOCD versions), pick the same version folder for
+both. Then set the two variables (replace the paths with the ones printed above):
+```powershell
+$openocd = "C:\...\openocd.exe"
+$scripts = "C:\...\scripts"   # the parent of the "target" folder printed above
+Test-Path "$scripts\interface\cmsis-dap.cfg"; Test-Path "$scripts\target\efm32s2_g23.cfg"   # both must print True
+```
+If `$root` does not exist, the Silicon Labs Arduino core is not installed (§0) or the Arduino IDE stores its data
+elsewhere: report it on the ticket.
+
+### 6.2 Backup (read-only)
+Work in a dedicated folder and use a **bare file name**, with no `C:\…` path. OpenOCD reads the text after `-c` as
+Tcl, and Tcl treats `\` as an escape character, so a Windows path in there would be mangled.
+```powershell
+New-Item -ItemType Directory -Force "$HOME\xiao_mg24_backups" | Out-Null
+Set-Location "$HOME\xiao_mg24_backups"
+$backup = "xiao_mg24_backup_$(Get-Date -Format yyyyMMdd).bin"
+& $openocd -s $scripts -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg -c "init; reset halt; dump_image $backup 0x08000000 0x180000; reset; exit"
+```
+The `&` is required because `$openocd` is a path. `$(Get-Date -Format yyyyMMdd)` replaces Linux's `$(date +%Y%m%d)`.
+Check the result:
+```powershell
+(Get-Item $backup).Length                      # must print 1572864
+Format-Hex -Path $backup | Select-Object -First 4   # first 64 bytes (replaces xxd -l 64)
+```
+* A size other than **1572864**: the backup is incomplete. Do not go on to §6.3; report the OpenOCD log.
+* **H7**: if those first 64 bytes are all `FF`, stop and report it on the ticket (see §2).
+* Copy the `.bin` somewhere other than this PC as well (USB stick, cloud).
+* `Error: unable to find a CMSIS-DAP device`: check the cable (data, not charge-only), close the Arduino IDE and any
+  serial monitor, and try again. Report the full log if it persists.
+
+### 6.3 Flash the application, verify, reset
+Copy `xiao_mg24_rgb_lamp.hex` (from `scripts/build.sh` or the CI artifact) into the same folder, then:
+```powershell
+Set-Location "$HOME\xiao_mg24_backups"
+& $openocd -s $scripts -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg -c "program xiao_mg24_rgb_lamp.hex verify reset exit"
+```
+Same checks as §3: the log ends with `** Verified OK **` and `** Resetting Target **`. Do not add `erase`.
+
+### 6.4 Restore the backup (§5.2)
+```powershell
+Set-Location "$HOME\xiao_mg24_backups"
+& $openocd -s $scripts -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg -c "program xiao_mg24_backup_YYYYMMDD.bin verify reset exit 0x08000000"
+```
+Replace `YYYYMMDD` with your backup's date. The address `0x08000000` is required for a `.bin`.
+
+### 6.5 Serial console on Windows
+The XIAO's serial port appears in Device Manager under **Ports (COM et LPT)** as *Périphérique série USB (COMx)*.
+Open it at **115200 8N1** with the Arduino IDE serial monitor (line ending: *Newline* or *Both NL & CR*) or PuTTY
+(*Serial*, `COMx`, 115200). Close it before running OpenOCD if OpenOCD cannot open the probe.
 
 ## What this project will never ask you to run
 
