@@ -1,0 +1,125 @@
+# XIAO MG24 Zigbee RGB battery lamp: Simplicity SDK (slc) project.
+# Pinned: Simplicity SDK 2026.6.1, Arm GNU Toolchain 14.2.Rel1, slc-cli 6.0.23 (see ../CLAUDE.md).
+# Part (no official board definition exists for the Seeed XIAO MG24):
+#   EFR32MG24B220F1536IM48, passed with `--with` at generation time.
+# Every pin is set in config/app_config.h and config/sl_iostream_usart_vcom_config.h.
+project_name: xiao_mg24_rgb_lamp
+label: XIAO MG24 Zigbee RGB lamp
+package: zigbee
+category: Zigbee Application
+quality: experimental
+description: >
+  Battery-powered Zigbee 3.0 RGB lamp (sleepy end device) for the Seeed Studio
+  XIAO MG24. Phase 1 skeleton: boots, keeps a recovery window awake, and
+  never joins a network on its own.
+
+sdk:
+  id: simplicity_sdk
+  version: 2026.6.1
+
+component:
+  - id: sl_main
+  - id: sl_main_custom_main   # main() is src/main.c
+  # Diagnostics console on USART0, routed to the on-board SAMD11 USB-serial
+  # bridge (PA08 = EFR32 TX, PA09 = EFR32 RX).
+  - id: iostream_usart
+    instance:
+      - vcom
+  - id: iostream_retarget_stdio
+  - id: cli
+    instance:
+      - example
+  - id: zigbee_debug_print
+  - id: zigbee_pro_leaf_stack
+  - id: zigbee_zcl_framework_core
+  - id: zigbee_zcl_cli
+  - id: zigbee_core_cli
+  - id: zigbee_basic
+  - id: zigbee_identify
+  - id: zigbee_end_device_support
+  - id: zigbee_network_steering
+  - id: zigbee_scan_dispatch
+  - id: zigbee_update_tc_link_key
+  - id: clock_manager
+  - id: power_manager
+  - id: emlib_gpio
+  - id: toolchain_gcc_lto
+    condition:
+      - toolchain_gcc
+  # Application image for a Gecko bootloader: linked above the bootloader
+  # area, so flashing it never writes the bootloader the board already has
+  # (same layout as the Silicon Labs Arduino core's XIAO MG24 Zigbee variant,
+  # FLASH ORIGIN 0x08006000). See ../docs/flashing.md.
+  - id: zigbee_application_bootloader
+
+configuration:
+  - name: SLI_ZIGBEE_PRIMARY_NETWORK_DEVICE_TYPE
+    value: SLI_ZIGBEE_NETWORK_DEVICE_TYPE_SLEEPY_END_DEVICE
+  - name: SLI_ZIGBEE_PRIMARY_NETWORK_SECURITY_TYPE
+    value: SLI_ZIGBEE_NETWORK_SECURITY_TYPE_3_0
+  - name: SL_CLI_MAX_INPUT_ARGUMENTS
+    value: 16
+  - name: SL_CLI_PROMPT_STRING
+    value: "\"rgb_lamp>\""
+  # The console must not keep the chip out of EM2 (sleep is still blocked by
+  # src/power_manager.c during the boot window and when the escape pin is held).
+  - name: SL_IOSTREAM_USART_VCOM_RESTRICT_ENERGY_MODE_TO_ALLOW_RECEPTION
+    value: 0
+  - name: SL_IOSTREAM_USART_VCOM_FLOW_CONTROL_TYPE
+    value: usartHwFlowControlNone
+  # Crystals on the XIAO MG24 (schematic: X2 39 MHz, X1 32.768 kHz). Tuning
+  # values from the Silicon Labs Arduino core's XIAO MG24 Zigbee variant
+  # (variants/xiao_mg24/zigbee/config/sl_clock_manager_*_config.h, MIT).
+  - name: SL_CLOCK_MANAGER_HFXO_EN
+    value: SL_CLOCK_MANAGER_HFXO_EN_ENABLE
+  - name: SL_CLOCK_MANAGER_HFXO_CTUNE
+    value: 95
+  - name: SL_CLOCK_MANAGER_LFXO_EN
+    value: 1
+  - name: SL_CLOCK_MANAGER_LFXO_CTUNE
+    value: 44
+  - name: SL_CLOCK_MANAGER_DEFAULT_HF_CLOCK_SOURCE
+    value: SL_CLOCK_MANAGER_DEFAULT_HF_CLOCK_SOURCE_HFXO
+  - name: SL_CLOCK_MANAGER_DEFAULT_LF_CLOCK_SOURCE
+    value: SL_CLOCK_MANAGER_DEFAULT_LF_CLOCK_SOURCE_LFXO
+  - name: NVM3_DEFAULT_NVM_SIZE
+    value: 32768
+  - name: SL_PSA_ITS_SUPPORT_V1_DRIVER
+    value: 0
+  - name: SL_PSA_ITS_SUPPORT_V2_DRIVER
+    value: 0
+  - name: SL_PSA_ITS_SUPPORT_V3_DRIVER
+    value: 1
+
+source:
+  - path: src/main.c
+  - path: src/zigbee.c
+  - path: src/rgb_led.c
+  - path: src/battery.c
+  - path: src/power_manager.c
+  - path: src/storage.c
+
+include:
+  - path: config
+    file_list:
+      - path: app_config.h
+  - path: src
+    file_list:
+      - path: rgb_led.h
+      - path: battery.h
+      - path: power_manager.h
+      - path: storage.h
+      - path: zigbee_app.h
+
+config_file:
+  # Console pins: pin-tool block filled in for the XIAO MG24 (PA08 TX, PA09 RX).
+  - override:
+      component: iostream_usart
+      file_id: iostream_usart_config
+      instance: vcom
+    path: config/sl_iostream_usart_vcom_config.h
+  - path: config/zcl/zcl_config.zap
+    file_id: zap_configuration_file_id
+    directory: zcl
+
+toolchain_settings: []
