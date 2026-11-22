@@ -47,6 +47,53 @@ bootloader, current application and NVM3.
 In that case **stop**: report it on the ticket, and I will give you the next step. An application linked at
 `0x08006000` would not start on such a board. It would still be recoverable, but there is no point flashing it.
 
+### 2.1 What the backup tells us about this board (operator's board, 2026-11-22)
+
+Reference backup: **`xiao_mg24_backup_20261122_b.bin`** (1 572 864 bytes). Keep it; §5.2 / §6.4 restore it.
+
+| Range | Content |
+| --- | --- |
+| `0x08000000–0x08005FFF` | Bootloader (H7 confirmed: SP `0x20001008`, reset `0x08000171`). Never written by §3. |
+| `0x08006000–…` | Stock application, vector table at `0x08006000`: where our `.hex` is linked. |
+| around `0x081747CC–0x08174842` | Data written by the stock application at runtime (two reads differ in 106 bytes there, nowhere else). Most likely the stock application's own NVM3. |
+
+Both reads were taken with the CPU halted (`reset halt` before `dump_image`), so each one is a consistent snapshot;
+they differ only because the stock application ran (and wrote its data) between the two sessions. Either file is a
+valid restore image; `_b` is the reference.
+
+### 2.2 How the NVM3 area is handled
+
+* **Our image's NVM3** is `0x08176000–0x0817DFFF` (32 kB, `NVM3_DEFAULT_NVM_SIZE = 32768` in
+  `firmware/xiao_mg24_rgb_lamp.slcp`; placed by the linker, not stored in the `.hex`). It holds the Zigbee stack's
+  tokens (network key, PAN, …) and, from Phase 2, the lamp's own settings under the application's keys.
+* **§3 never erases or writes NVM3, nor any page outside the `.hex` segments.** `program … verify reset exit` erases
+  only the 8 kB pages that cover the `.hex` segments, which end far below NVM3 (Phase 1:
+  `0x0803EC57`; `scripts/check_image.py` from AUR-412 is meant to reject any segment outside the application area).
+  So:
+  * flashing a new build of the lamp over an older one **keeps** the lamp's settings and its Zigbee network (no
+    re-pairing);
+  * flashing the lamp over the stock firmware the first time leaves the stock application's data in place (it is
+    simply not used by our image, except in the case below).
+* **Open point (does not block Phase 2's console tests):** the stock data sits at `0x08174xxx`, just below our NVM3
+  start. If the stock NVM3 is larger than 8 kB (for example 40 kB, `0x08174000–0x0817DFFF`, the SDK default size),
+  its pages overlap ours, and our image would open the stock application's NVM3 pages instead of a blank area. I have
+  not verified how NVM3 and the Zigbee stack react to that, so the read-only scan below settles it first. It reads the
+  **backup file only**, nothing on the board. It lists every 8 kB page that starts with an NVM3 page header (first
+  word `0xB29A0001`, bytes `01 00 9A B2`, from `nvm3_page.c` in the Simplicity SDK):
+  ```powershell
+  Set-Location "$HOME\xiao_mg24_backups"
+  $a = [IO.File]::ReadAllBytes("$PWD\xiao_mg24_backup_20261122_b.bin")
+  for ($o = 0; $o -lt $a.Length; $o += 0x2000) {
+    if ($a[$o] -eq 0x01 -and $a[$o+1] -eq 0x00 -and $a[$o+2] -eq 0x9A -and $a[$o+3] -eq 0xB2) { "NVM3 page at 0x{0:X8}" -f (0x08000000 + $o) }
+  }
+  ```
+  (Linux: `for o in $(seq 0 8192 1572863); do [ "$(xxd -s $o -l 4 -p xiao_mg24_backup_20261122_b.bin)" = 01009ab2 ] && printf 'NVM3 page at 0x%08X\n' $((0x08000000+o)); done`.)
+  * **No page at or above `0x08176000`:** no overlap. §3 is enough; nothing else to do.
+  * **Pages at or above `0x08176000`:** report the list on the ticket before the first flash of the lamp. I will then
+    propose, for your explicit approval, a one-time erase of **only** `0x08176000–0x0817DFFF` (our NVM3, 4 pages),
+    with the exact command. It is reversible from this backup (§5.2), but it is not part of the default procedure,
+    so do not erase anything on your own.
+
 ## 3. Flash the application, verify, reset
 
 ```sh
@@ -86,7 +133,17 @@ openocd -s <scripts> -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg \
   -c "init; reset halt; program xiao_mg24_backup_YYYYMMDD.bin verify reset exit 0x08000000"
 ```
 This rewrites the whole main flash from your backup, including the original bootloader area and NVM3. The board
-returns to its state before step 3.
+returns to its state before step 3. In detail:
+* `program` of a `.bin` at `0x08000000` erases and rewrites every 8 kB page of the 1536 kB main flash (the backup
+  covers all of it, `FF` pages included), then `verify` reads it all back and compares. Expect about a minute.
+* NVM3 comes back **as it was in the backup**: the stock application's data from that day returns, and the **lamp's
+  own NVM3 (balance, Zigbee network) is lost**. After a restore, if the lamp had joined a network, remove it in
+  Zigbee2MQTT; it must be re-paired after the lamp firmware is flashed again.
+* The bootloader area is rewritten with the same bytes it already holds. This is the only command in this document
+  that writes there; use it only for recovery, and only with a backup of this board whose size is exactly
+  1 572 864 bytes and whose first bytes match §2.1 (`08 10 00 20 71 01 00 08`).
+* Token pages (user data, manufacturing), lock bits and the Secure Engine are outside main flash and are not touched.
+* For this board use `xiao_mg24_backup_20261122_b.bin`.
 
 ### 5.3 Seeed's documented unbricking (full erase of main flash)
 From the Seeed wiki ("Unbricking"): download
