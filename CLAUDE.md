@@ -20,6 +20,8 @@ firmware/
   src/power_manager.[ch]           boot window, escape pin, sleep policy, low battery
   src/storage.[ch]                 persistent settings (NVM3)
 scripts/build.sh                   generate + build from the command line
+scripts/check_image.py             image safety gate: no byte outside the application area
+.github/workflows/firmware.yml     CI: pinned tools, build, image gate, 14-day artifact
 docs/                              feasibility, framework, pinout, wiring, assumptions, flashing, roadmap
 build/                             generated project and binaries (git-ignored, never committed)
 ```
@@ -40,9 +42,20 @@ build/                             generated project and binaries (git-ignored, 
 
 ```sh
 scripts/build.sh
+scripts/check_image.py     # fails if the .hex writes outside 0x08006000-0x08175FFF or has no vector table
 ```
 
-It runs:
+`check_image.py` (Python standard library only) enforces the promise in `docs/flashing.md`: the image never touches
+the bootloader (`0x08000000-0x08005FFF`), NVM3 (`0x08176000-0x0817DFFF`) or the end of flash. It prints the image's
+segments; the current build gives `0x08006000-0x0800627C` and `0x08006280-0x0803EC58`. Run it after every build and
+before handing an image to the operator.
+
+CI (`.github/workflows/firmware.yml`) does the same on every push and pull request to `main`, with the pinned tools
+downloaded and checked against pinned SHA-256 sums, and keeps the `.hex` and `.s37` as a 14-day workflow artifact.
+CI uses Arm's upstream build of GCC 14.2.Rel1, so its image can differ by a few bytes from this host's
+(Silicon Labs' build of the same release).
+
+`scripts/build.sh` runs:
 
 ```sh
 export PATH=/opt/silabs/installs/conan/p/gcc-a469753773d4f2/p/bin:$PATH
@@ -56,7 +69,8 @@ when `make` exits 0 and `arm-none-eabi-size` shows `.text` starting at `0x080060
 
 On another machine: install Simplicity SDK 2026.6.1, slc-cli 6.0.23 and the Arm GNU Toolchain 14.2.Rel1; run
 `slc configuration --sdk <sdk path>` and `slc signature trust --sdk <sdk path>` once; then set
-`SLC=<path to slc>` and `GCC_BIN=<toolchain bin>` for `scripts/build.sh`. CI (DevOps) does the same.
+`SLC=<path to slc>` and `GCC_BIN=<toolchain bin>` for `scripts/build.sh`. CI (DevOps) does the same, and also sets
+`ARM_GCC_DIR` (read by the generated Makefile) and `STUDIO_ADAPTER_PACK_PATH` (where slc finds ZAP).
 
 Expected, harmless warnings: `RAIL PTI peripheral not configured` (PTI is off on purpose), `-Wstringop-overflow` in
 the prebuilt stack's `neighbor.c` (LTO), and unused `cli_cmd_zcl_*` variables in the generated `zap-cli.c`.
