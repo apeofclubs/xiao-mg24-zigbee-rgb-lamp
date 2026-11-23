@@ -18,12 +18,13 @@
 #define APP_MANUFACTURER_NAME        "OpenSource"
 #define APP_MODEL_IDENTIFIER         "XIAO-MG24-RGB-LiPo"
 #define APP_ENDPOINT                 1
-#define APP_FIRMWARE_VERSION_STRING  "0.1.0-phase1"
+#define APP_FIRMWARE_VERSION_STRING  "0.2.0-phase2"
 
 /* ---------------------------------------------------------------------------
  * RGB LED (conventional 4-pin LED, one resistor per channel)
- * Pads D0 / D2 / D3 (PC00 / PC02 / PC03). Driven by TIMER0 CC0..CC2 from
- * Phase 2 on; in Phase 1 the pins are only set to their "off" level.
+ * Pads D0 / D2 / D3 (PC00 / PC02 / PC03), driven by TIMER0 CC0..CC2 in PWM
+ * mode. TIMER0 can reach port C: the SDK pin-tool data for this part lists
+ * locations 32..41 (PC00..PC09) for TIMER0 CC0/CC1/CC2 (item H9).
  * ------------------------------------------------------------------------- */
 #define APP_LED_RED_PORT             gpioPortC   /* pad D0 */
 #define APP_LED_RED_PIN              0
@@ -34,12 +35,50 @@
 
 /* 1 = common cathode (shared pin to GND, a channel is ON when its GPIO is HIGH).
  * 0 = common anode   (shared pin to 3V3, a channel is ON when its GPIO is LOW).
- * Must match the LED actually wired: see docs/hardware-assumptions.md (A1). */
+ * Must match the LED actually wired. H3 confirmed by the operator on
+ * 2026-11-22: common (long) leg on GND, so common cathode. */
 #define APP_LED_COMMON_CATHODE       1
 
 /* Upper limit applied to every PWM duty cycle, in percent (battery life). */
 #define APP_LED_MAX_DUTY_PERCENT     100
 #define APP_LED_PWM_FREQUENCY_HZ     1000
+
+/* Per-channel balance, percent of full PWM for that channel (0..100).
+ * Defaults estimated from the operator's bench test (no firmware, 3V3 through
+ * the resistors): red 220 ohm (about 6 mA) looked the dimmest, then blue, and
+ * green 330 ohm (about 1-1.5 mA) the brightest. Starting point only: tune with
+ * `lamp white` and `lamp balance`; the tuned values are kept in NVM3. */
+#define APP_LED_BALANCE_RED_DEFAULT    100u
+#define APP_LED_BALANCE_GREEN_DEFAULT  40u
+#define APP_LED_BALANCE_BLUE_DEFAULT   70u
+
+/* Colour transitions: default fade time and the tick that drives fades and
+ * effects (a Zigbee application-framework event, so it wakes the main loop). */
+#define APP_LED_FADE_DEFAULT_MS      400u
+#define APP_LED_FADE_MAX_MS          10000u
+#define APP_LED_TICK_MS              20u
+#define APP_EFFECT_RAINBOW_PERIOD_MS 12000u   /* one full hue turn */
+#define APP_EFFECT_BREATHE_PERIOD_MS 4000u    /* dim -> bright -> dim */
+#define APP_EFFECT_BREATHE_MIN_PERCENT 8u     /* lowest point of "breathe" */
+
+/* ---------------------------------------------------------------------------
+ * Persistent settings: default NVM3 instance, application (user) key domain
+ * 0x00000-0x0FFFF only. The Zigbee stack's objects live in 0x10000-0x1FFFF
+ * (NVM3KEY_DOMAIN_ZIGBEE, SDK zigbee/stack/config/token-stack.h) and are never
+ * read or written by the application.
+ * ------------------------------------------------------------------------- */
+#define APP_NVM3_KEY_LAMP_SETTINGS   0x0A100u
+
+/* ---------------------------------------------------------------------------
+ * Bench console over SEGGER RTT (read by OpenOCD through the on-board
+ * CMSIS-DAP, docs/flashing.md section 6.5). RTT has no receive interrupt, so
+ * the CLI is polled: an application event wakes the main loop every
+ * APP_CONSOLE_POLL_MS. APP_CONSOLE_KEEP_AWAKE = 1 also holds EM1 forever so the
+ * probe can read the RTT buffers at any time (bench builds on USB power only;
+ * Phase 5 sets it to 0 for battery builds).
+ * ------------------------------------------------------------------------- */
+#define APP_CONSOLE_KEEP_AWAKE       1
+#define APP_CONSOLE_POLL_MS          50u
 
 /* ---------------------------------------------------------------------------
  * Recovery: boot window and escape pin (docs/flashing.md, safe-flashing rules)
@@ -70,7 +109,7 @@
 #define APP_BATTERY_REPORT_INTERVAL_S 3600u
 
 /* ---------------------------------------------------------------------------
- * Pins the firmware must never drive (see docs/pinout.md)
+ * Pins the firmware must never drive (see docs/pinout.md and the Seeed wiki)
  *   PA01 / PA02  SWCLK / SWDIO (on-board SAMD11 debugger)
  *   PA08 / PA09  USART to the SAMD11 (console)
  *   PA06, PA00, PB00, PB01  external SPI flash (CS, SCK, MOSI, MISO)

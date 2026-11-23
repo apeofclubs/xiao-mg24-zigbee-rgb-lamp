@@ -2,6 +2,9 @@
  * @file zigbee.c
  * @brief Zigbee application callbacks.
  *
+ * Phase 2 adds the local lamp (lamp.c) and its bench console (lamp_cli.c);
+ * Zigbee control of the lamp arrives in Phase 3.
+ *
  * Phase 1: the stack runs as a sleepy end device but the firmware never starts
  * network steering on its own. Joining for a bench test is done from the
  * console: `plugin network-steering start 0`. On/Off, Level Control, Color
@@ -14,15 +17,19 @@
 #include "battery.h"
 #include "power_manager.h"
 #include "storage.h"
+#include "lamp.h"
+#include "lamp_cli.h"
 
 void sl_zigbee_af_main_init_cb(void)
 {
   power_manager_init();   // first: boot window and escape pin
   storage_init();
-  rgb_led_init();
+  rgb_led_init();          // LED pins at their OFF level before anything else
+  lamp_init();             // balance and fade from NVM3, LED stays off
+  lamp_cli_init();         // `lamp ...` commands on the RTT console
   battery_init();
 
-  sl_zigbee_app_debug_println("%s %s %s (Phase 1 skeleton)",
+  sl_zigbee_app_debug_println("%s %s %s (Phase 2 bench: lamp commands on RTT)",
                               APP_MANUFACTURER_NAME,
                               APP_MODEL_IDENTIFIER,
                               APP_FIRMWARE_VERSION_STRING);

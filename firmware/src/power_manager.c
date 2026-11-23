@@ -6,6 +6,9 @@
  *   APP_BOOT_AWAKE_WINDOW_MS, so a debugger can always attach.
  * - If the escape pad (D1 = PC01) is LOW at boot, the requirement is never
  *   released: the chip does not sleep until the next reset.
+ * - If APP_CONSOLE_KEEP_AWAKE is 1 (Phase 2 bench builds, USB power), an EM1
+ *   requirement is held forever, so the probe can read the RTT console at any
+ *   time. The firmware then reaches EM0 and EM1 only.
  * - EM4 is never used by this firmware.
  */
 #include "power_manager.h"
@@ -28,6 +31,9 @@ static void boot_window_elapsed(sl_sleeptimer_timer_handle_t *handle, void *data
 void power_manager_init(void)
 {
   sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
+#if APP_CONSOLE_KEEP_AWAKE
+  sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);   /* never removed */
+#endif
 
   CMU_ClockEnable(cmuClock_GPIO, true);
   // Input with pull-up (DOUT = 1 selects pull-up), filter on.
