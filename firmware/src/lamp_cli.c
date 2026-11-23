@@ -208,8 +208,11 @@ static const sl_cli_command_info_t info_white = SL_CLI_COMMAND(
   cmd_white, "Balanced white (255,255,255) to judge the balance", "", { SL_CLI_ARG_END, });
 static const sl_cli_command_info_t info_balance = SL_CLI_COMMAND(
   cmd_balance, "Show, or set and save, the per-channel balance",
-  "red 0-100" SL_CLI_UNIT_SEPARATOR "green 0-100" SL_CLI_UNIT_SEPARATOR "blue 0-100",
-  { SL_CLI_ARG_UINT8OPT, SL_CLI_ARG_UINT8OPT, SL_CLI_ARG_UINT8OPT, SL_CLI_ARG_END, });
+  "r g b, 0-100 each (none: show)",
+  // One optional type, last in the list: the SDK CLI repeats it for every
+  // token (0..n uint8) and rejects an optional type that is not last.
+  // cmd_balance accepts exactly 0 or 3 values.
+  { SL_CLI_ARG_UINT8OPT, SL_CLI_ARG_END, });
 static const sl_cli_command_info_t info_preset = SL_CLI_COMMAND(
   cmd_preset, "Named colour (no name: list)", "name",
   { SL_CLI_ARG_STRINGOPT, SL_CLI_ARG_END, });

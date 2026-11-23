@@ -48,7 +48,7 @@ scripts/check_image.py     # fails if the .hex writes outside 0x08006000-0x08175
 
 `check_image.py` (Python standard library only) enforces the promise in `docs/flashing.md`: the image never touches
 the bootloader (`0x08000000-0x08005FFF`), NVM3 (`0x08176000-0x0817DFFF`) or the end of flash. It prints the image's
-segments; the current build gives `0x08006000-0x0800627C` and `0x08006280-0x0803E9D4` (end exclusive). Run it after every build and
+segments; the current build gives `0x08006000-0x0800627C` and `0x08006280-0x0803E9CC` (end exclusive). Run it after every build and
 before handing an image to the operator.
 
 CI (`.github/workflows/firmware.yml`) does the same on every push and pull request to `main`, with the pinned tools
