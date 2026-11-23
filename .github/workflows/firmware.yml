@@ -30,7 +30,7 @@ env:
   # slc-cli 6.0.23 is only distributed through Silicon Labs' SLT installer (no direct download since slc-cli 6).
   # SLT is pinned here; the packages it installs are checked below against the archives of a known-good install.
   SLT_URL: https://www.silabs.com/documents/public/software/slt-cli-1.2.2-linux-x64.zip
-  SLT_SHA256: "" # not yet pinned: the first run prints the value and fails, see "Install pinned tools"
+  SLT_SHA256: b0757c79d5dd03f41ff3b2bf2074d918e5e4d5c56835506a2887d5b4275384dc # slt-cli-1.2.2-linux-x64.zip, 2026-11-23
   SLC_CLI_SHA256: 15d0269cb3083f0c621857e18ae4039a74603e8e0e655e037d84b9ae8a6e6821 # slc-cli-v6.0.23.zip
   JAVA_SHA256: 5382fa98bcc66fc3aef48792a3e84328eca16afa9bf97517527e92812516ee50 # java21-v21.0.6.zip
   PYTHON_SHA256: 26f56b1cfa05b2b3b7dafb2c2a5e3c19498389c34dfe68be800f71f476c86363 # python-v3.10.3.zip
