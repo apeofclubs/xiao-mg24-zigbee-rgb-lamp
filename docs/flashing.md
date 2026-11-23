@@ -5,8 +5,9 @@ with a **full backup**. It writes **only the application area**. It touches **no
 no Secure Engine, OTP or keys, no bootloader, no token pages, no mass erase.
 
 ### Flashing (board: Seeed Studio XIAO MG24, probe: on-board SAMD11 CMSIS-DAP over USB-C)
-**Writes:** `xiao_mg24_rgb_lamp.hex` to `0x08006000–0x0803EC57` (Phase 1 build; the exact end changes with each
-build, and the `.hex` file holds its own addresses). Only the 8 kB flash pages covering that range are erased.
+**Writes:** `xiao_mg24_rgb_lamp.hex` to `0x08006000–0x0803E9D3` (Phase 2 build on the agents' host, two segments
+`0x08006000–0x0800627B` and `0x08006280–0x0803E9D3`; the exact end changes with each build, and the `.hex` file holds
+its own addresses). Only the 8 kB flash pages covering that range are erased.
 **Not touched:** the bootloader area `0x08000000–0x08005FFF`, NVM3 `0x08176000–0x0817DFFF` (Zigbee network keys and
 settings), the end of flash `0x0817E000–0x0817FFFF`, the user-data/manufacturing token pages, lock bits, the Secure
 Engine. **Irreversible operations: none.**
@@ -24,12 +25,20 @@ Engine. **Irreversible operations: none.**
   `interface/cmsis-dap.cfg` and `target/efm32s2_g23.cfg`). This is the configuration Seeed's script and the Arduino
   core's `platform.txt` use for the XIAO MG24.
 * No J-Link, so no Simplicity Commander: Commander does not talk to the XIAO's CMSIS-DAP probe.
-* The firmware file is `build/gen/build/debug/xiao_mg24_rgb_lamp.hex`, from `scripts/build.sh`. Use the `.hex`, not the
-  `.bin`: the `.bin` has no address and would be written at the wrong place.
+* The firmware file is `xiao_mg24_rgb_lamp.hex`. Get it one of two ways:
+  * **CI artifact** (no tools to install): on GitHub, *Actions* > workflow *firmware* > the run for the task branch's
+    latest commit > *Artifacts* > download the zip (kept 14 days) and extract `xiao_mg24_rgb_lamp.hex`. The run must
+    be green: it means the build passed and `scripts/check_image.py` accepted the image.
+  * **Local build**: `scripts/build.sh`, then `scripts/check_image.py`; the file is
+    `build/gen/build/debug/xiao_mg24_rgb_lamp.hex`.
+
+  Use the `.hex`, not the `.bin`: the `.bin` has no address and would be written at the wrong place.
 
 ## 1. Connect
 
-USB-C cable to the XIAO; the battery may stay disconnected. A CMSIS-DAP device and a serial port appear.
+USB-C data cable to the XIAO; keep the battery disconnected in Phase 2. A CMSIS-DAP device appears (Windows:
+"Périphérique USB composite", `USB\VID_2886&PID_0062`). The board's USB serial port ("Virtual COM-Port") is **not
+used** by this firmware: on Windows 8.1 it has no driver, and that is fine. Do not install a driver for it.
 
 ## 2. Backup (read-only)
 
@@ -65,10 +74,11 @@ valid restore image; `_b` is the reference.
 
 * **Our image's NVM3** is `0x08176000–0x0817DFFF` (32 kB, `NVM3_DEFAULT_NVM_SIZE = 32768` in
   `firmware/xiao_mg24_rgb_lamp.slcp`; placed by the linker, not stored in the `.hex`). It holds the Zigbee stack's
-  tokens (network key, PAN, …) and, from Phase 2, the lamp's own settings under the application's keys.
+  tokens (network key, PAN, …) and, from Phase 2, the lamp's own settings (balance, fade time) in one object under
+  the application's key `0x0A100` (user domain `0x00000–0x0FFFF`; the stack's objects are in `0x10000–0x1FFFF`).
 * **§3 never erases or writes NVM3, nor any page outside the `.hex` segments.** `program … verify reset exit` erases
-  only the 8 kB pages that cover the `.hex` segments, which end far below NVM3 (Phase 1:
-  `0x0803EC57`; `scripts/check_image.py` from AUR-412 is meant to reject any segment outside the application area).
+  only the 8 kB pages that cover the `.hex` segments, which end far below NVM3 (Phase 2:
+  `0x0803E9D3`; `scripts/check_image.py` from AUR-412 is meant to reject any segment outside the application area).
   So:
   * flashing a new build of the lamp over an older one **keeps** the lamp's settings and its Zigbee network (no
     re-pairing);
@@ -104,28 +114,46 @@ openocd -s <scripts> -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg \
 The log must end with `** Programming Finished **`, `** Verify Started **`, `** Verified OK **` and `** Resetting
 Target **`. Do not add `erase` or any `mass_erase` / `flash erase_address` command.
 
-## 4. What to expect (Phase 1)
+## 4. What to expect (Phase 2)
 
-1. Open the XIAO's serial port at **115200 8N1** (e.g. `screen /dev/ttyACM0 115200` or the Arduino serial monitor).
-   Press RESET on the XIAO. Within a second you should see
-   `OpenSource XIAO-MG24-RGB-LiPo 0.1.0-phase1 (Phase 1 skeleton)` and
-   `Recovery: awake for 10000 ms after reset`.
-2. Type `help` + Enter: the `rgb_lamp>` console answers. In Phase 1 the console only answers during the first 10 s
-   after reset, or all the time with the escape (§5.1), because the chip sleeps afterwards. Report what you see.
-3. The external RGB LED stays **off** in Phase 1. The device does **not** join Zigbee on its own. If you want to try a
-   join with Zigbee2MQTT in "permit join", type `plugin network-steering start 0` during the awake window or with the
-   escape. This is optional in Phase 1: a device with only Basic/Identify appears in Z2M as "unsupported", which is
-   expected.
+1. The external RGB LED stays **off** after the flash and after every reset, until you send a command.
+2. Open the console over RTT (§4.1). Type `help` + Enter: the `rgb_lamp>` prompt answers, and `lamp status` prints
+   the lamp's state. The bench tests are in `docs/bench-test.md`.
+3. The boot messages (`OpenSource XIAO-MG24-RGB-LiPo 0.2.0-phase2 …`, `Recovery: awake for 10000 ms after reset`) are
+   printed before OpenOCD attaches, so you usually will not see them. They are not needed.
+4. The device does **not** join Zigbee on its own (Zigbee control of the lamp is Phase 3).
+
+### 4.1 Console over SEGGER RTT (Linux; Windows in §6.5)
+The console goes through the same CMSIS-DAP link as flashing: no serial port, no driver. OpenOCD reads and writes
+the firmware's RTT buffers in RAM while the firmware runs. It **does not reset or halt the board and writes nothing to
+flash**.
+```sh
+openocd -s <scripts> -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg \
+  -c "init; rtt setup 0x20000000 0x10000 {SEGGER RTT}; rtt start; rtt server start 19021 0"
+```
+* The log must show `rtt: Control block found at 0x2000….` (Phase 2 local build: `0x200040AC`; the CI build can
+  differ slightly, which is why OpenOCD searches the first 64 kB of RAM for it).
+* In a second terminal: `nc 127.0.0.1 19021` (or `telnet 127.0.0.1 19021`). Type the commands there.
+* Stop with `Ctrl+C` in the OpenOCD terminal; the lamp keeps running. **Only one program can use the probe**: stop the
+  RTT session before flashing (§3) or backing up (§2), and start it again afterwards.
+* The bench build holds EM1 (`APP_CONSOLE_KEEP_AWAKE = 1` in `firmware/config/app_config.h`), so the probe can
+  always read the buffers. It never uses EM2 sleep, and **never EM4**.
 
 ## 5. If the board no longer responds
 
 Work through these in order. Each one is safe; the later ones erase more.
 
 ### 5.1 Escape at boot (erases nothing)
-Connect pad **D1** to **GND** with a wire, then press RESET, or plug USB in with the wire in place. This firmware then
-never sleeps until the next reset, and OpenOCD can always attach. The same pad also works with Arduino firmware: Seeed
-documents that if PC1 (= D1) "is pulled LOW during reset, the device enters an infinite loop, allowing you to upload a
-new sketch". Then reflash (§3) or restore (§5.2), and remove the wire.
+Connect pad **D1** (PC1) to **GND** with a wire, then press RESET, or plug USB in with the wire in place.
+* **With this project's firmware**: the firmware itself reads D1 at boot (`src/power_manager.c`). If it is LOW, the
+  chip never sleeps until the next reset, so OpenOCD can always attach. The Phase 2 bench build never sleeps anyway;
+  the escape matters from Phase 5 (battery builds) on.
+* **With Arduino firmware** (for example after restoring the stock backup): Seeed documents that if PC1 "is pulled LOW
+  during reset, the device enters an infinite loop, allowing you to upload a new sketch". That loop is code in the
+  Arduino core, **not** a chip or bootloader feature: it does not exist in our Simplicity SDK firmware, which uses
+  the same pad for its own escape described above.
+
+Then reflash (§3) or restore (§5.2), and remove the wire. The board has no BOOT button.
 
 ### 5.2 Restore the backup (puts back exactly what was there)
 ```sh
@@ -154,8 +182,9 @@ Linux, run the command it contains:
 openocd -d2 -s scripts/ -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg \
   -c "init; reset_config srst_nogate; reset halt; flash erase_address 0x08000000 0x08180000; reset; exit"
 ```
-**It erases the whole main flash**: application, bootloader area and NVM3. The lamp loses its Zigbee network and must
-be re-paired in Zigbee2MQTT (remove it there first). Afterwards, restore your backup (§5.2), or re-install the
+**It erases the whole main flash** (`0x08000000–0x0817FFFF`): application, bootloader area and NVM3. The lamp loses
+its settings (balance, fade time) and its Zigbee network and must be re-paired in Zigbee2MQTT (remove it there first).
+It does not touch lock bits, tokens outside main flash or the Secure Engine. Use it only if §5.1 and §5.2 fail. Afterwards, restore your backup (§5.2), or re-install the
 Arduino bootloader (Arduino IDE: board XIAO MG24, *Tools > Burn Bootloader*), then flash again (§3). Seeed forum
 thread on the issue: https://forum.seeedstudio.com/t/deepsleep-bricks-xiao-mg24/284889
 
@@ -222,10 +251,22 @@ Set-Location "$HOME\xiao_mg24_backups"
 ```
 Replace `YYYYMMDD` with your backup's date. The address `0x08000000` is required for a `.bin`.
 
-### 6.5 Serial console on Windows
-The XIAO's serial port appears in Device Manager under **Ports (COM et LPT)** as *Périphérique série USB (COMx)*.
-Open it at **115200 8N1** with the Arduino IDE serial monitor (line ending: *Newline* or *Both NL & CR*) or PuTTY
-(*Serial*, `COMx`, 115200). Close it before running OpenOCD if OpenOCD cannot open the probe.
+### 6.5 Console on Windows (SEGGER RTT, no COM port, no driver)
+Same as §4.1, with the OpenOCD found in §6.1. On the operator's Windows 8.1 the XIAO's "Virtual COM-Port" has no
+driver: leave it as it is, it is not used.
+1. With the lamp firmware running (§6.3 done, at least 2 s after reset), in PowerShell:
+   ```powershell
+   & $openocd -s $scripts -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg -c "init; rtt setup 0x20000000 0x10000 {SEGGER RTT}; rtt start; rtt server start 19021 0"
+   ```
+   It attaches without resetting or halting the board and writes nothing to flash. Leave this window open. The log
+   must show `rtt: Control block found at 0x2000….`; if it says the block was not found, wait 2 s and run it again,
+   then report the log.
+2. Open a terminal on `127.0.0.1`, port `19021`: **PuTTY** (the standalone `putty.exe` needs no installation),
+   *Connection type* **Raw**, Host `127.0.0.1`, Port `19021`. Windows' own Telnet client also works
+   (`telnet 127.0.0.1 19021`) if the *Telnet Client* Windows feature is enabled.
+3. Type `help`, `lamp status`, `lamp rgb 255 0 0`, … (`docs/bench-test.md`).
+4. To stop: close PuTTY, then `Ctrl+C` in the OpenOCD window. The lamp keeps running. **Stop OpenOCD before flashing
+   (§6.3) or backing up (§6.2)**: only one program can use the probe at a time.
 
 ## What this project will never ask you to run
 

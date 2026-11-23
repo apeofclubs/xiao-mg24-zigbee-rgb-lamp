@@ -11,18 +11,19 @@ current state and next steps are in `docs/roadmap.md`.
 firmware/
   xiao_mg24_rgb_lamp.slcp          slc project: components, configuration, sources
   config/app_config.h              ALL pins, polarity, thresholds, profiles (no pin elsewhere)
-  config/sl_iostream_usart_vcom_config.h   console pins (pin-tool override)
   config/zcl/zcl_config.zap        ZCL endpoints/clusters/attributes (ZAP)
   src/main.c                       start-up and super-loop
   src/zigbee.c, zigbee_app.h       network, clusters, reporting
-  src/rgb_led.[ch]                 PWM, colour conversion, transitions
+  src/rgb_led.[ch]                 TIMER0 PWM on the LED pins, EM1 while lit
+  src/lamp.[ch]                    colour, gamma, balance (NVM3), fades, effects
+  src/lamp_cli.[ch]                `lamp ...` bench commands; console on SEGGER RTT (no UART)
   src/battery.[ch]                 ADC, voltage -> percentage
   src/power_manager.[ch]           boot window, escape pin, sleep policy, low battery
   src/storage.[ch]                 persistent settings (NVM3)
 scripts/build.sh                   generate + build from the command line
 scripts/check_image.py             image safety gate: no byte outside the application area
 .github/workflows/firmware.yml     CI: pinned tools, build, image gate, 14-day artifact
-docs/                              feasibility, framework, pinout, wiring, assumptions, flashing, roadmap
+docs/                              feasibility, framework, pinout, wiring, assumptions, flashing, bench test, roadmap
 build/                             generated project and binaries (git-ignored, never committed)
 ```
 
@@ -47,7 +48,7 @@ scripts/check_image.py     # fails if the .hex writes outside 0x08006000-0x08175
 
 `check_image.py` (Python standard library only) enforces the promise in `docs/flashing.md`: the image never touches
 the bootloader (`0x08000000-0x08005FFF`), NVM3 (`0x08176000-0x0817DFFF`) or the end of flash. It prints the image's
-segments; the current build gives `0x08006000-0x0800627C` and `0x08006280-0x0803EC58`. Run it after every build and
+segments; the current build gives `0x08006000-0x0800627C` and `0x08006280-0x0803E9D4` (end exclusive). Run it after every build and
 before handing an image to the operator.
 
 CI (`.github/workflows/firmware.yml`) does the same on every push and pull request to `main`, with the pinned tools
@@ -81,7 +82,8 @@ the prebuilt stack's `neighbor.c` (LTO), and unused `cli_cmd_zcl_*` variables in
 * The image is linked at `0x08006000`, above the bootloader. Never produce an image or a command that writes
   `0x08000000–0x08005FFF`, the NVM3/token area, lock bits, OTP or the Secure Engine. No `--force`, no mass erase.
 * Firmware must stay recoverable: keep the 10 s awake window after reset (`APP_BOOT_AWAKE_WINDOW_MS`) and the D1
-  escape. **Never use EM4.** Never reconfigure PA01/PA02 (SWCLK/SWDIO) or PA08/PA09. Never send the external flash
+  escape. The console is SEGGER RTT through the on-board CMSIS-DAP (the operator's Windows 8.1 has no driver for the
+  SAMD11's USB serial port); keep `SL_DEVICE_INIT_EMU_EM2_DEBUG_ENABLE = 1`. **Never use EM4.** Never reconfigure PA01/PA02 (SWCLK/SWDIO) or PA08/PA09. Never send the external flash
   Deep Power Down (`0xB9`). No reset loop without a delay.
 * Every hand-off gives the validation level: written / compiled / flashed / physically tested / verified in
   Zigbee2MQTT. Agents reach *compiled* at most.

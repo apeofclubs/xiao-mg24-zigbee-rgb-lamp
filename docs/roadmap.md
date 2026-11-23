@@ -20,10 +20,16 @@ Status: **compiled**.
 
 ## Phase 2: local RGB (no Zigbee control yet)
 
-* TIMER0 CC0..CC2 PWM at about 1 kHz on D0/D2/D3, polarity from `APP_LED_COMMON_CATHODE`.
-* Gamma-corrected brightness 0–100 %, per-channel limits for colour balance, smooth transitions on a timer.
+* TIMER0 CC0..CC2 PWM at 1 kHz on D0/D2/D3, polarity from `APP_LED_COMMON_CATHODE`; pins at their OFF level at boot
+  and whenever a channel is 0 (`src/rgb_led.c`).
+* Gamma 2.2 brightness 0–100 %, per-channel balance saved in NVM3 (application key `0x0A100`), fades and two effects
+  on an application event (`src/lamp.c`).
 * EM1 requirement held while any channel is lit, released when all are off.
-* A console command (`lamp rgb <r> <g> <b>`, `lamp level <0-100>`) for bench tests.
+* Bench console over SEGGER RTT through the on-board CMSIS-DAP (`src/lamp_cli.c`, `flashing.md` §4.1/§6.5): `lamp rgb`,
+  `hsv`, `level`, `off`, `white`, `balance`, `preset`, `fade`, `effect`, `status` (`bench-test.md`). The bench build
+  holds EM1 all the time (`APP_CONSOLE_KEEP_AWAKE = 1`), on USB power only.
+
+Status: **compiled** (AUR-417).
 
 **Needs from you before Phase 3:** LED wired per `wiring.md`; for each of red, green, blue, white at 100 %: the current
 per channel (multimeter in series, mA) and whether colours and brightness look right; confirmation the lamp switches

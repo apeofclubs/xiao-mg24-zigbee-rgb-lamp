@@ -62,7 +62,7 @@ Checked against the upstream repository (https://github.com/SiliconLabsSoftware/
 The two requirements that decide the design, a sleepy end device with controlled polling and EM1-only-while-lit, are
 exactly what the Arduino library hides. The Arduino core is useful for one thing here: its XIAO MG24 variant is the
 reference for board-specific settings. This project takes from it (and cites in `THIRD_PARTY_NOTICES.md`) the
-**crystal tuning** (HFXO CTUNE 95, LFXO enabled with CTUNE 44), the USART pins, and the **application start address
+**crystal tuning** (HFXO CTUNE 95, LFXO enabled with CTUNE 44), the USART pins (unused since Phase 2: the console is on RTT), and the **application start address
 0x08006000** above the bootloader.
 
 **No mixing.** No Arduino headers, libraries or `analogWrite()` are used. The firmware calls only Simplicity SDK APIs

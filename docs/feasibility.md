@@ -37,8 +37,10 @@ Source references ([S1]…[S7]) are listed in `pinout.md`.
 events (EM1 = core clock stopped, peripherals running) and TIMER0 keeps the PWM. When the LED is off, the requirement
 is released and the chip goes down to EM2 between polls. In EM2 the LED pins hold their static "off" level.
 
-*Estimate* of the cost: the light itself dominates. About 5–6 mA for full white with the resistors in `wiring.md`,
-plus the EM1 current of the chip, which is in the low-mA range. The exact EM1 figure is in the datasheet [S6]
+*Estimate* of the cost: the light itself dominates. **Current budget per channel at 100 % duty** with the resistors
+actually wired (`wiring.md`, red 220 Ω since 2026-11-22, green/blue 330 Ω): red ≈ 6 mA, green ≈ 1 mA, blue ≈ 1 mA
+(estimates, to be replaced by the Phase 2 bench measurement, `bench-test.md` §2). Full white with the default balance
+(red 100 %, green 40 %, blue 70 %) averages about 6 + 0.4 + 0.7 ≈ 7 mA, plus the EM1 current of the chip, which is in the low-mA range. The exact EM1 figure is in the datasheet [S6]
 "Current consumption" tables (to be quoted, item H9). Seeed's own figure for a running board is "Normal (Typ.)
 6.71mA" [S1], with unstated conditions. Either way, a lit lamp lasts **days, not months**, on 400 mAh. Standby is
 where the sleepy design matters.
@@ -104,6 +106,10 @@ by the cell, not by the firmware**, once polling is ≥ 1 s. Phase 5 replaces th
   is a second line of defence, never the first.
 
 ## 5. Battery measurement (`ADC_BAT`)
+
+**Available for a later phase (Phase 4), not used in Phase 2.** The Seeed wiki [S1] (page updated 2024-10-17) lists
+PD4 as `ADC_BAT` and PD3 as the battery-divider enable (HIGH to measure, LOW in sleep), with the sample
+`analogRead(PD4) * 2 * 3.3 / 4095`. The Phase 2 firmware never drives PD3 or PD4.
 
 * PD04 (`VBAT_ADC`) reads the battery through a divider. PD03 (`VBAT_CTL`) switches the divider on: Seeed's sketch
   drives PD3 HIGH in `setup()` [S1]. The ×2 in Seeed's formula implies a 1:2 divider. The resistor values sit on

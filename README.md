@@ -9,15 +9,16 @@ charger. It runs as a Zigbee **sleepy end device** for low standby consumption.
 
 ## Status
 
-**Phase 1 of 6: hardware plan and buildable skeleton.** The firmware **compiles** (Simplicity SDK 2026.6.1). It has
-**not been flashed or tested on hardware yet.** It does not drive the LED and does not join Zigbee by itself. See the
+**Phase 2 of 6: local RGB from a bench console.** The firmware **compiles** (Simplicity SDK 2026.6.1). It has
+**not been flashed or tested on hardware yet.** It drives the LED from console commands over SEGGER RTT
+([bench test](docs/bench-test.md)) and does not join Zigbee by itself. See the
 [roadmap](docs/roadmap.md).
 
 | Feature | Implemented | Compiled | Tested on hardware | Verified in Zigbee2MQTT |
 |---|---|---|---|---|
 | Build from the command line | yes | yes | – | – |
 | Recovery window + D1 escape | yes | yes | no | – |
-| RGB PWM | no (Phase 2) | | | |
+| RGB PWM, gamma, balance, fades, effects (console) | yes | yes | no | – |
 | Zigbee light (On/Off, Level, Color) | no (Phase 3) | | | |
 | Battery reporting | no (Phase 4) | | | |
 | Power profiles | no (Phase 5) | | | |
@@ -28,6 +29,7 @@ charger. It runs as a Zigbee **sleepy end device** for low standby consumption.
 * [Framework choice](docs/framework.md): Simplicity SDK vs. Arduino core
 * [Pinout](docs/pinout.md): pins used, pins to avoid
 * [Wiring](docs/wiring.md): LED, resistors, battery, USB-C
+* [Bench test](docs/bench-test.md): Phase 2 console commands and what to report
 * [Hardware assumptions to confirm](docs/hardware-assumptions.md)
 * [Flashing, backup and recovery](docs/flashing.md): read before flashing
 * [Roadmap](docs/roadmap.md)

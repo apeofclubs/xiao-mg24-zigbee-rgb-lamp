@@ -27,17 +27,29 @@ The MCU on the schematic is `EFR32MG24B220F1536IM48-B` (U5, sheet 05 [S2]). That
 | Recovery escape (input, pull-up) | **D1** | PC01 | GPIO | Same pad as the Arduino core's `DEEP_SLEEP_ESCAPE_PIN` [S3], so one habit works for both firmwares |
 | Battery divider enable | (internal) | PD03 `VBAT_CTL` | GPIO out | Fixed by the board [S2] |
 | Battery voltage | (internal) | PD04 `VBAT_ADC` | IADC | Fixed by the board [S1][S2] |
-| Console TX (to SAMD11 → USB) | (internal, D12 pad) | PA08 | USART0 TX | Fixed by the board [S2][S4] |
-| Console RX (from SAMD11) | (internal, D11 pad) | PA09 | USART0 RX | Fixed by the board [S2][S4] |
+| USART to the SAMD11 (USB serial) | (internal, D12 / D11 pads) | PA08 / PA09 | unused from Phase 2 | The console moved to SEGGER RTT over SWD (`flashing.md` §4.1); the pins are left in their reset state |
 
 All three PWM channels come from **one timer** (TIMER0 has 3 compare channels [S5]), so they share one frequency
-and stay in phase. On Series 2, TIMER outputs are routed to pins through the GPIO routing registers. Whether TIMER0
-can reach port C on this part is expected but **not yet checked against the datasheet's alternate-function table**
-(item H9). Phase 2's generation with the SDK pin tool will confirm it. If not, the fallback is TIMER1 (also 3
-channels [S5]) or moving the LED to D8–D10 (port A).
+and stay in phase. On Series 2, TIMER outputs are routed to pins through the GPIO routing registers. **TIMER0 can
+reach port C on this part**: the SDK pin-tool data [S5] (`EFR32MG24B220F1536IM48/PORTIO.portio`) lists locations
+32–41, i.e. PC00–PC09, for each of TIMER0 CC0, CC1 and CC2 (checked for Phase 2, 2026-11-23).
 
-Phase 1 sets D0/D2/D3 to push-pull at the "off" level for the configured LED polarity. It reads D1 once at boot
-and then disables it. It does not touch PD03/PD04 (see `hardware-assumptions.md`, item H4).
+The firmware sets D0/D2/D3 to push-pull at the "off" level for the configured LED polarity at boot; from Phase 2,
+TIMER0 drives a pin only while its channel is above 0. It reads D1 once at boot and then disables it. It does not
+touch PD03/PD04 (see `hardware-assumptions.md`, item H4).
+
+### Check against the pins Seeed reserves (Seeed wiki, page updated 2024-10-17)
+
+The operator's reference lists: PD4 = `ADC_BAT`, PD3 = battery-divider enable, PA6 = external-flash CS, PB5 = RF
+switch, PB1 = IMU power, PB0 = mic power, PC1 = Seeed's recovery pin.
+
+* **The LED pins PC00 / PC02 / PC03 are on none of them.** Phase 2 drives only these three pins (and reads PC01 once
+  at boot, as an input with pull-up, which is how Seeed's own escape uses it).
+* PD3/PD4, PA6, PB0/PB1, PB5 are not touched by the Phase 2 firmware. The external flash is never sent any command,
+  so never Deep Power Down (`0xB9`).
+* **Discrepancy to resolve before anyone uses PB0/PB1:** the wiki's list gives PB1/PB0 as IMU/mic power, while the
+  schematic v1.1 [S2] and the Arduino variant [S3] (table below) give PB00/PB01 as SPI to the external flash and
+  PD05/PC08 as IMU power/mic enable on the Sense. No phase of this project uses these pins, so it has no effect now.
 
 ## Full pad table
 
@@ -66,7 +78,7 @@ From [S1] (pin map), cross-checked against the schematic net names [S2] and the 
 | EFR32 pin | Why | Source |
 |---|---|---|
 | **PA01 / PA02** | SWCLK / SWDIO to the on-board SAMD11 debugger. Reconfiguring them removes the only way to reflash. **Never touched.** | [S2] sheets 04/05 (nets `SWCLK`, `SWDIO`) |
-| PA08 / PA09 | USART to the SAMD11 (USB serial); used for the console | [S1][S2] |
+| PA08 / PA09 | USART to the SAMD11 (USB serial); unused from Phase 2 (console on RTT) | [S1][S2] |
 | RESET | `~MG24_RESET`, driven by the SAMD11 | [S2] |
 | PA06 | `FLASH_CS` of the 4 MB SPI flash U8 (P25Q32SH). Never send it Deep Power Down (`0xB9`) | [S2] sheet 06; [S1] warning |
 | PA00, PB00, PB01 | SPI1 SCK/MOSI/MISO, shared with the external flash; bottom pads D17/D15/D16 | [S2][S3] |

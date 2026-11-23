@@ -8,8 +8,8 @@
 | Qty | Part | Notes |
 |---|---|---|
 | 1 | Seeed Studio XIAO MG24 (or MG24 Sense) | |
-| 1 | RGB LED, 4 pins, conventional (not WS2812) | Elegoo kit LED. Common cathode assumed, common anode supported |
-| 1 | 680 Ω resistor, ¼ W or 0603/0805 | red channel |
+| 1 | RGB LED, 4 pins, conventional (not WS2812) | Elegoo kit LED. **Common cathode** (H3 confirmed on the bench, 2026-11-22); common anode supported |
+| 1 | 220 Ω resistor, ¼ W or 0603/0805 | red channel (was 680 Ω in the first plan; **never below 150 Ω**) |
 | 2 | 330 Ω resistor | green and blue channels |
 | 1 | LiPo cell Liter Energy 902025, 3.7 V 400 mAh, red/black leads | **with a protection circuit** (H1) |
 | – | thin silicone wire (e.g. 28–30 AWG), heat-shrink | |
@@ -21,7 +21,7 @@ No MOSFET, no external divider, no second charger.
 ```
                     Seeed XIAO MG24 (top view, USB-C at the top)
                    ┌──────────────[ USB-C ]──────────────┐
-      R 680 Ω      │ D0  PC00                     5V     │  ← nothing connected
+      R 220 Ω      │ D0  PC00                     5V     │  ← nothing connected
  LED R ──/\/\/\────┤                                     │
                    │ D1  PC01  (escape: GND at boot      │
                    │            = never sleep)   GND ────┼──────────┐
@@ -48,7 +48,7 @@ driven LOW, and the firmware inverts the PWM.
 
 ```
  LED common (anode, longest leg) ──────── XIAO 3V3
- LED R ── 680 Ω ── D0     LED G ── 330 Ω ── D2     LED B ── 330 Ω ── D3
+ LED R ── 220 Ω ── D0     LED G ── 330 Ω ── D2     LED B ── 330 Ω ── D3
 ```
 
 Connect the common anode to **3V3**, never to `5V` or `BAT+`. With a higher voltage on the anode, an "off" GPIO at
@@ -63,22 +63,27 @@ the pin's voltage drop makes the estimate slightly high, so it errs on the safe 
 
 | Channel | Vf assumed at 1–2 mA | R | I (estimate) | I if the LED were shorted (worst case for the pin) |
 |---|---|---|---|---|
-| Red | 1.8–2.0 V | 680 Ω | 1.9–2.2 mA | 4.9 mA |
+| Red | 1.8–2.0 V | 220 Ω | 5.9–6.8 mA | 15 mA |
 | Green | 2.6–2.9 V | 330 Ω | 1.2–2.1 mA | 10 mA |
 | Blue | 2.6–2.9 V | 330 Ω | 1.2–2.1 mA | 10 mA |
 
 * The Vf values are typical for 5 mm RGB LEDs at low current. They are **assumed**. Green and blue LEDs are often
   specified at about 3.0–3.2 V at 20 mA, and their Vf drops at 1–2 mA. Item H3 measures the real LED.
-* Total: about 6 mA for full white, a few mA per pin. Every pin stays far below normal microcontroller GPIO limits.
-  The EFR32MG24 datasheet figures are item H9.
-* **Low current on purpose**: a 1–2 mA 5 mm LED is clearly visible indoors and costs far less battery than 20 mA.
-  Colour balance (green usually looks brighter) is corrected in firmware with per-channel duty limits in Phase 2, not
-  by changing resistors.
+* **Red resistor: 220 Ω, as wired on the operator's bench (2026-11-22).** The first plan used 680 Ω (about 2 mA); with
+  it the red looked much dimmer than green and blue, so the operator fitted 220 Ω (about 6 mA). **Never go below
+  150 Ω on red** (≈ 10 mA with Vf = 1.8 V; ≈ 22 mA if the LED shorted).
+* Total: about 9 mA for full white (red ≈ 6 mA, green and blue ≈ 1–2 mA each) before the firmware's balance, which
+  lowers green and blue further. Every pin stays far below normal microcontroller GPIO limits. The EFR32MG24
+  datasheet figures are item H9.
+* **Low current on purpose**: a few mA through a 5 mm LED is clearly visible indoors and costs far less battery than
+  20 mA. Colour balance (on the bench, green looked brightest, then blue, then red) is corrected in firmware with
+  per-channel balance coefficients (`lamp balance`, `docs/bench-test.md`), not by changing resistors again.
 * **Green and blue have little headroom**: 3.3 V − Vf is only a few tenths of a volt. When the battery falls below
   about 3.4 V, the buck can no longer hold 3.3 V, and green/blue dim before red. The low-battery policy (Phase 4)
   accounts for this.
-* If the lamp is too dim after the Phase 2 test, go down in steps (red 470 Ω, green/blue 220 Ω) and measure each
-  channel's current with a multimeter in series. Keep each channel under 5 mA.
+* If green or blue is too dim after the Phase 2 test, go down in one step (green/blue 220 Ω) and measure the channel's
+  current with a multimeter in series (`docs/bench-test.md` §2). Keep green and blue under 5 mA and red under 10 mA
+  (150 Ω minimum).
 
 ## Battery connection
 
