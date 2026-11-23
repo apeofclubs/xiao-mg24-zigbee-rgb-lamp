@@ -14,9 +14,12 @@
 #include "app_config.h"
 #include "rgb_led.h"
 #include "storage.h"
+#include "color.h"
 
-/* Perceptual value of a channel: colour (0..255) x level (0..100). */
-#define P_MAX  (255u * 100u)
+/* Perceptual value of a channel: colour (0..255) x level (0..254, the Zigbee
+ * CurrentLevel scale; the console's 0..100 % is converted on the way in). */
+#define LEVEL_MAX  254u
+#define P_MAX      (255u * LEVEL_MAX)
 
 /* x^2.2 for x = i/256, i = 0..256, scaled to 0..65535. Generated with
  * round(65535 * (i / 256) ** 2.2). */
@@ -78,7 +81,7 @@ static const preset_t presets[] = {
 
 static storage_lamp_settings_t settings;
 static lamp_rgb_t color = { 255, 140, 40 };   /* warm white until told otherwise */
-static uint8_t level = 100;                    /* last non-zero level */
+static uint8_t level = LEVEL_MAX;              /* last non-zero level, 1..254 */
 static bool on;
 
 /* Output in the perceptual scale, and the running fade. */
@@ -128,11 +131,11 @@ static void target_from_state(uint16_t p[3])
   p[2] = (uint16_t)(color.b * lvl);
 }
 
-static void start_fade(void)
+static void start_fade_ms(uint16_t fade_ms)
 {
   target_from_state(p_to);
   memcpy(p_from, p_now, sizeof(p_from));
-  fade_total_ticks = settings.fade_ms / APP_LED_TICK_MS;
+  fade_total_ticks = fade_ms / APP_LED_TICK_MS;
   fade_tick = 0;
   if (fade_total_ticks == 0u) {
     memcpy(p_now, p_to, sizeof(p_now));
@@ -143,45 +146,39 @@ static void start_fade(void)
   sl_zigbee_af_event_set_delay_ms(&tick_event, APP_LED_TICK_MS);
 }
 
+static void start_fade(void)
+{
+  start_fade_ms(settings.fade_ms);
+}
+
 static void stop_effect(void)
 {
   effect = LAMP_EFFECT_NONE;
   effect_ms = 0;
 }
 
-/* Integer HSV -> RGB. hue 0..359, sat 0..100, val 0..100. */
-static lamp_rgb_t hsv_to_rgb(uint16_t hue, uint8_t sat, uint8_t val)
-{
-  hue %= 360u;
-  uint32_t v = (uint32_t)val * 255u / 100u;
-  uint32_t s = sat;
-  uint32_t region = hue / 60u;
-  uint32_t rem = (uint32_t)(hue % 60u) * 255u / 60u;       /* 0..250 */
-  uint8_t p = (uint8_t)(v * (100u - s) / 100u);
-  uint8_t q = (uint8_t)(v * (100u * 255u - s * rem) / (100u * 255u));
-  uint8_t t = (uint8_t)(v * (100u * 255u - s * (255u - rem)) / (100u * 255u));
-  lamp_rgb_t c;
-  switch (region) {
-    case 0:  c.r = (uint8_t)v; c.g = t; c.b = p; break;
-    case 1:  c.r = q; c.g = (uint8_t)v; c.b = p; break;
-    case 2:  c.r = p; c.g = (uint8_t)v; c.b = t; break;
-    case 3:  c.r = p; c.g = q; c.b = (uint8_t)v; break;
-    case 4:  c.r = t; c.g = p; c.b = (uint8_t)v; break;
-    default: c.r = (uint8_t)v; c.g = p; c.b = q; break;
-  }
-  return c;
-}
-
 static void effect_step(void)
 {
   effect_ms += APP_LED_TICK_MS;
   uint16_t p[3];
-  if (effect == LAMP_EFFECT_RAINBOW) {
+  if (effect == LAMP_EFFECT_BLINK) {
+    /* Identify: the current colour (white if none) at full brightness,
+     * APP_EFFECT_BLINK_PERIOD_MS on/off, whatever the on/off state. */
+    effect_ms %= APP_EFFECT_BLINK_PERIOD_MS;
+    lamp_rgb_t c = color;
+    if (c.r == 0u && c.g == 0u && c.b == 0u) {
+      c.r = c.g = c.b = 255u;
+    }
+    bool lit = effect_ms < (APP_EFFECT_BLINK_PERIOD_MS / 2u);
+    p[0] = lit ? (uint16_t)(c.r * LEVEL_MAX) : 0u;
+    p[1] = lit ? (uint16_t)(c.g * LEVEL_MAX) : 0u;
+    p[2] = lit ? (uint16_t)(c.b * LEVEL_MAX) : 0u;
+  } else if (effect == LAMP_EFFECT_RAINBOW) {
     effect_ms %= APP_EFFECT_RAINBOW_PERIOD_MS;
     uint16_t hue = (uint16_t)(effect_ms * 360u / APP_EFFECT_RAINBOW_PERIOD_MS);
-    color = hsv_to_rgb(hue, 100u, 100u);
+    color = color_from_hsv(hue, 100u, 100u);
     target_from_state(p);
-  } else {
+  } else {   /* LAMP_EFFECT_BREATHE */
     /* Breathe: triangle wave on the brightness of the current colour. */
     effect_ms %= APP_EFFECT_BREATHE_PERIOD_MS;
     uint32_t half = APP_EFFECT_BREATHE_PERIOD_MS / 2u;
@@ -248,7 +245,7 @@ void lamp_set_rgb(uint8_t r, uint8_t g, uint8_t b)
 
 void lamp_set_hsv(uint16_t hue, uint8_t sat, uint8_t val)
 {
-  lamp_rgb_t c = hsv_to_rgb(hue, sat > 100u ? 100u : sat, val > 100u ? 100u : val);
+  lamp_rgb_t c = color_from_hsv(hue, sat, val);
   lamp_set_rgb(c.r, c.g, c.b);
 }
 
@@ -261,10 +258,24 @@ void lamp_set_level(uint8_t percent)
   if (percent == 0u) {
     on = false;
   } else {
-    level = percent;
+    level = (uint8_t)(((uint32_t)percent * LEVEL_MAX + 50u) / 100u);
     on = true;
   }
   start_fade();
+}
+
+void lamp_apply(bool new_on, uint8_t new_level, lamp_rgb_t new_color, uint16_t fade_ms)
+{
+  stop_effect();
+  if (new_level > LEVEL_MAX) {
+    new_level = LEVEL_MAX;
+  }
+  if (new_level > 0u) {
+    level = new_level;
+  }
+  on = new_on && (new_level > 0u);
+  color = new_color;
+  start_fade_ms(fade_ms);
 }
 
 void lamp_off(void)
@@ -333,7 +344,8 @@ uint16_t lamp_get_fade_ms(void)
 void lamp_get_state(lamp_state_t *state)
 {
   state->on = on;
-  state->level = level;
+  state->level = (uint8_t)(((uint32_t)level * 100u + LEVEL_MAX / 2u) / LEVEL_MAX);
+  state->level_raw = level;
   state->color = color;
   state->effect = effect;
   state->fading = (effect == LAMP_EFFECT_NONE) && sl_zigbee_af_event_is_scheduled(&tick_event);

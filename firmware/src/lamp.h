@@ -1,8 +1,9 @@
 /**
  * @file lamp.h
  * @brief Lamp state: colour, brightness, per-channel balance, fades and
- *        effects. Phase 2: driven from the console only (lamp_cli.c); the
- *        Zigbee clusters call the same functions from Phase 3 on.
+ *        effects. One colour path for everything: the Zigbee clusters
+ *        (zigbee_light.c, through lamp_apply()) and the bench console
+ *        (lamp_cli.c) both end in the same gamma / balance / PWM pipeline.
  */
 #ifndef LAMP_H
 #define LAMP_H
@@ -14,6 +15,7 @@ typedef enum {
   LAMP_EFFECT_NONE = 0,
   LAMP_EFFECT_RAINBOW,
   LAMP_EFFECT_BREATHE,
+  LAMP_EFFECT_BLINK,      /* Identify */
 } lamp_effect_t;
 
 typedef struct {
@@ -34,6 +36,11 @@ void lamp_set_hsv(uint16_t hue, uint8_t sat, uint8_t val);
 /** Brightness 0..100 %, gamma-corrected. 0 turns the lamp off (and keeps the
  *  previous non-zero level for the next "on"). */
 void lamp_set_level(uint8_t percent);
+
+/** Zigbee path: on/off, level 1..254 (Zigbee CurrentLevel scale; 0 = off),
+ *  colour (brightest channel at 255) and the fade time to reach it. Stops a
+ *  running effect. Does not touch the saved settings. */
+void lamp_apply(bool on, uint8_t level, lamp_rgb_t color, uint16_t fade_ms);
 
 /** Fade to off. */
 void lamp_off(void);
@@ -57,7 +64,8 @@ uint16_t lamp_get_fade_ms(void);
 
 typedef struct {
   bool on;
-  uint8_t level;
+  uint8_t level;          /* percent 0..100 (last non-zero level) */
+  uint8_t level_raw;      /* 1..254 */
   lamp_rgb_t color;
   lamp_effect_t effect;
   bool fading;

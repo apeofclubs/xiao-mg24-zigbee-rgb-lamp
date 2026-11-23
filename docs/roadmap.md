@@ -35,15 +35,26 @@ Status: **compiled** (AUR-417).
 per channel (multimeter in series, mA) and whether colours and brightness look right; confirmation the lamp switches
 off fully.
 
-## Phase 3: Zigbee RGB light
+## Phase 3: Zigbee light
 
-* Endpoint 1 becomes an Extended Color Light (0x010D): On/Off (0x0006), Level Control (0x0008), Color Control
-  (0x0300; XY and hue/saturation), Groups, Scenes, Identify; manufacturer `OpenSource`, model `XIAO-MG24-RGB-LiPo`.
-* Pairing on demand (button or console), factory reset procedure, last-state restore from NVM3, start-up behaviour
-  attribute.
-* Zigbee2MQTT: check whether the generic Zigbee light definition works; if not, an external converter in
-  `zigbee2mqtt/`.
-* Docs: pairing, factory reset, re-pairing, Z2M troubleshooting, Home Assistant automation examples.
+* Endpoint 1 is an Extended Color Light (0x010D): On/Off (0x0006), Level Control (0x0008, transitions and "with
+  on/off"), Color Control (0x0300: hue/saturation, XY, colour temperature 153–500 mireds; `ColorCapabilities`
+  0x0019, no enhanced hue or colour loop because the SDK server does not implement them), Groups, Scenes, Identify
+  (LED blinks); manufacturer `OpenSource`, model `XIAO-MG24-RGB-LiPo` (`config/zcl/zcl_config.zap`).
+* The SDK cluster servers drive the Phase 2 lamp through one path: attributes → `lamp_apply()` → gamma, balance, PWM
+  (`src/zigbee_light.c`, conversions in `src/color.c`).
+* Pairing on demand only, from the console: `zigbee join | leave | status | reset | rfswitch` (`src/zigbee_cli.c`).
+  No button wired; an optional one on D9 is proposed (`zigbee.md` §8).
+* Factory reset (`zigbee reset`): leave, bindings, reporting, groups, scenes, attributes, saved last state; the
+  balance (`0x0A100`) is kept. No flash erase.
+* Last state in NVM3 (`0x0A101`) with `StartUpOnOff`, `StartUpCurrentLevel`, `StartUpColorTemperatureMireds`; written
+  only after 5 s of stable state, at most once per 30 s (worst case 120 writes/hour, `zigbee.md` §4).
+* Bench build keeps the RTT console and EM1; forced short poll 250 ms (a command arrives within 250 ms); the
+  profiles' long poll (0.25 / 1 / 5 s) is for Phase 5. Rejoin attempts never stop after a parent loss.
+* H6 bench aid `zigbee rfswitch reset|0|1` (not saved). Zigbee2MQTT 2.x external converter
+  `zigbee2mqtt/xiao_mg24_rgb_lamp.mjs`. Docs: `zigbee.md`, `bench-test.md` §3; measured LED currents in `wiring.md`.
+
+Status: **compiled** (AUR-437).
 
 **Needs from you before Phase 4:** the Z2M "About" / "Exposes" tabs for the lamp (screenshot or text); ON/OFF,
 brightness and colour working from HA (yes/no each, with the delay you notice); behaviour after a lamp reset and a

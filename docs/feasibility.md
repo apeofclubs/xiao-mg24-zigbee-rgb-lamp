@@ -37,10 +37,12 @@ Source references ([S1]…[S7]) are listed in `pinout.md`.
 events (EM1 = core clock stopped, peripherals running) and TIMER0 keeps the PWM. When the LED is off, the requirement
 is released and the chip goes down to EM2 between polls. In EM2 the LED pins hold their static "off" level.
 
-*Estimate* of the cost: the light itself dominates. **Current budget per channel at 100 % duty** with the resistors
-actually wired (`wiring.md`, red 220 Ω since 2026-11-22, green/blue 330 Ω): red ≈ 6 mA, green ≈ 1 mA, blue ≈ 1 mA
-(estimates, to be replaced by the Phase 2 bench measurement, `bench-test.md` §2). Full white with the default balance
-(red 100 %, green 40 %, blue 70 %) averages about 6 + 0.4 + 0.7 ≈ 7 mA, plus the EM1 current of the chip, which is in the low-mA range. The exact EM1 figure is in the datasheet [S6]
+*Measured* cost of the light (operator's bench, 2026-11-22/23, `wiring.md` "Measured on the bench"): with the
+resistors now wired (red 100 Ω, green 220 Ω, blue 100 Ω) one channel alone at 100 % duty draws **red 10 mA, green
+2.7 mA, blue 3.3 mA**, so full white at balance 100/100/100 is about **16 mA**. Blue limits the white point, so the
+tuned balance lowers red and green and the real white is lower (to be re-measured once the operator has re-tuned
+`lamp balance`). Design margin: 10 mA per pin, reached by red: never under 100 Ω on red. Add the EM1 current of the
+chip, which is in the low-mA range. The exact EM1 figure is in the datasheet [S6]
 "Current consumption" tables (to be quoted, item H9). Seeed's own figure for a running board is "Normal (Typ.)
 6.71mA" [S1], with unstated conditions. Either way, a lit lamp lasts **days, not months**, on 400 mAh. Standby is
 where the sleepy design matters.
@@ -133,6 +135,26 @@ U9 selects the chip antenna or the U.FL connector, controlled by PB04/PB05 [S1][
 whose Zigbee examples run on this board, **does not drive PB04/PB05 at all**. Its variant file only lists them [S3].
 Phase 1 does the same: both pins stay in their reset state (disabled). Whether the on-board antenna is selected in
 that state, or whether PB05 must be HIGH and PB04 LOW, is item H6. Phase 3 checks it with a link-quality comparison.
+
+What the sources say: the Seeed wiki pin map names PB04 "RF Switch Port Select" ("Switch onboard antenna and the UFL
+antenna") and PB05 "RF Switch Power" [S1]; the schematic marks the select input "0: RF1, 1: RF2" [S2]. **No source we
+have says which of RF1/RF2 is the chip antenna.** So Phase 3 does not guess: the bench command `zigbee rfswitch
+reset|0|1` (`zigbee.md` §5) lets the operator compare the three states without reflashing. Default at every boot: the
+reset state (both pins disabled), unchanged from Phases 1–2.
+
+Why the command is safe for the radio front end:
+
+* Both pins only drive the switch's logic inputs: PB05 is its supply (a GPIO-powered switch draws well under a mA)
+  and PB04 its select input, both at the 3.3 V I/O level the switch is designed for on this board. Neither pin is a
+  debug, flash or USB-bridge pin.
+* Whichever position is selected, the radio sees an antenna path: the chip antenna, or the U.FL connector. With
+  nothing on the U.FL the radio transmits into an open connector at the stack's +3 dBm (2 mW, the network-steering
+  default, shown by `zigbee status`). The reflected power is at most those 2 mW, far below the part's own maximum
+  output (+10 dBm on the B220); the expected effect is a weak or lost link, not damage. This is a reasoned estimate,
+  not a Silicon Labs mismatch rating (not available offline). If you want no doubt at all, fit an antenna on the U.FL
+  before trying the state that turns out to select it.
+* Nothing is saved: a reset or power cycle returns to the reset state, so a state that loses the link is undone by
+  pressing RESET.
 
 ## 7. Recoverability (never brick the board)
 

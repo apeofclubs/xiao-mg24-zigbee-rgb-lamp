@@ -18,7 +18,7 @@
 #define APP_MANUFACTURER_NAME        "OpenSource"
 #define APP_MODEL_IDENTIFIER         "XIAO-MG24-RGB-LiPo"
 #define APP_ENDPOINT                 1
-#define APP_FIRMWARE_VERSION_STRING  "0.2.0-phase2"
+#define APP_FIRMWARE_VERSION_STRING  "0.3.0-phase3"   /* also Basic SWBuildID in the .zap */
 
 /* ---------------------------------------------------------------------------
  * RGB LED (conventional 4-pin LED, one resistor per channel)
@@ -60,6 +60,18 @@
 #define APP_EFFECT_RAINBOW_PERIOD_MS 12000u   /* one full hue turn */
 #define APP_EFFECT_BREATHE_PERIOD_MS 4000u    /* dim -> bright -> dim */
 #define APP_EFFECT_BREATHE_MIN_PERCENT 8u     /* lowest point of "breathe" */
+#define APP_EFFECT_BLINK_PERIOD_MS   1000u    /* Identify: 0.5 s on, 0.5 s off */
+
+/* Zigbee control. The SDK On/Off, Level Control and Color Control servers run
+ * the ZCL transitions themselves (attribute steps every 100 ms or less); the
+ * lamp follows each step with this short fade so the steps do not show. */
+#define APP_ZIGBEE_FOLLOW_FADE_MS    100u
+
+/* Colour temperature range announced in ColorTempPhysicalMin/Max (.zap):
+ * 153 mireds = 6500 K, 500 mireds = 2000 K. Rendered with the RGB LED (no white
+ * channel), so it is an approximation, tuned by the balance. */
+#define APP_COLOR_TEMP_MIN_MIREDS    153u
+#define APP_COLOR_TEMP_MAX_MIREDS    500u
 
 /* ---------------------------------------------------------------------------
  * Persistent settings: default NVM3 instance, application (user) key domain
@@ -67,7 +79,15 @@
  * (NVM3KEY_DOMAIN_ZIGBEE, SDK zigbee/stack/config/token-stack.h) and are never
  * read or written by the application.
  * ------------------------------------------------------------------------- */
-#define APP_NVM3_KEY_LAMP_SETTINGS   0x0A100u
+#define APP_NVM3_KEY_LAMP_SETTINGS   0x0A100u   /* balance, fade: kept by `zigbee reset` */
+#define APP_NVM3_KEY_LIGHT_STATE     0x0A101u   /* last on/off, level, colour: erased by `zigbee reset` */
+
+/* Last-state writes: only once the light state has not changed for
+ * APP_STATE_SAVE_DELAY_MS, never more often than APP_STATE_SAVE_MIN_INTERVAL_MS,
+ * and only if it differs from what is stored. Worst case 120 writes per hour
+ * (docs/zigbee.md "Flash wear"). */
+#define APP_STATE_SAVE_DELAY_MS        5000u
+#define APP_STATE_SAVE_MIN_INTERVAL_MS 30000u
 
 /* ---------------------------------------------------------------------------
  * Bench console over SEGGER RTT (read by OpenOCD through the on-board
@@ -113,16 +133,46 @@
  *   PA01 / PA02  SWCLK / SWDIO (on-board SAMD11 debugger)
  *   PA08 / PA09  USART to the SAMD11 (console)
  *   PA06, PA00, PB00, PB01  external SPI flash (CS, SCK, MOSI, MISO)
- *   PA07  user LED; PB04 / PB05 RF switch select / power; PD05, PC08, PC09 Sense only
+ *   PA07  user LED; PD05, PC08, PC09 Sense only
+ *   PB04 / PB05 RF switch: left in their reset state, except by the bench
+ *   command `zigbee rfswitch` below (not saved, back to reset state on reboot).
  * ------------------------------------------------------------------------- */
 
+/* RF switch U9 (FM8625H) between the radio, the chip antenna and the U.FL
+ * connector (Seeed wiki pin map: PB04 "RF Switch Port Select", PB05 "RF Switch
+ * Power"; schematic v1.1 sheet 05: select "0: RF1, 1: RF2"). Which of RF1/RF2
+ * is the chip antenna is not stated in any source we have: item H6, measured
+ * with `zigbee rfswitch` (docs/zigbee.md). */
+#define APP_RF_SWITCH_SELECT_PORT    gpioPortB
+#define APP_RF_SWITCH_SELECT_PIN     4
+#define APP_RF_SWITCH_POWER_PORT     gpioPortB
+#define APP_RF_SWITCH_POWER_PIN      5
+
 /* ---------------------------------------------------------------------------
- * Power profiles (Phase 5). Short poll interval in ms.
+ * Polling. A sleepy end device only receives a command when it polls its
+ * parent; the parent keeps a pending command about 7.7 s, so every poll
+ * interval below stays under 7 s.
+ *   Bench build (APP_CONSOLE_KEEP_AWAKE = 1): the device stays in short-poll
+ *   mode all the time: a command arrives within APP_POLL_SHORT_MS.
+ *   Battery build (APP_CONSOLE_KEEP_AWAKE = 0, tuned in Phase 5): short poll
+ *   for a few seconds after each message (the SDK end-device-support wake
+ *   timeout), then the profile's long poll interval APP_POLL_LONG_MS.
  * ------------------------------------------------------------------------- */
+#define APP_POLL_SHORT_MS            250u
+
 #define APP_POWER_PROFILE_RESPONSIVE 0
 #define APP_POWER_PROFILE_BALANCED   1
 #define APP_POWER_PROFILE_MAX_BATTERY 2
 #define APP_POWER_PROFILE            APP_POWER_PROFILE_BALANCED
+
+/* Long poll per profile, as in docs/feasibility.md section 3. */
+#if APP_POWER_PROFILE == APP_POWER_PROFILE_RESPONSIVE
+#define APP_POLL_LONG_MS             250u
+#elif APP_POWER_PROFILE == APP_POWER_PROFILE_BALANCED
+#define APP_POLL_LONG_MS             1000u
+#else
+#define APP_POLL_LONG_MS             5000u
+#endif
 
 #define APP_DEBUG_LOG                1   /* 0 for production low-power builds */
 

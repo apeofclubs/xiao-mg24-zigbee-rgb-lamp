@@ -5,9 +5,10 @@ with a **full backup**. It writes **only the application area**. It touches **no
 no Secure Engine, OTP or keys, no bootloader, no token pages, no mass erase.
 
 ### Flashing (board: Seeed Studio XIAO MG24, probe: on-board SAMD11 CMSIS-DAP over USB-C)
-**Writes:** `xiao_mg24_rgb_lamp.hex` to `0x08006000–0x0803E9D3` (Phase 2 build on the agents' host, two segments
-`0x08006000–0x0800627B` and `0x08006280–0x0803E9D3`; the exact end changes with each build, and the `.hex` file holds
-its own addresses). Only the 8 kB flash pages covering that range are erased.
+**Writes:** `xiao_mg24_rgb_lamp.hex` to `0x08006000–0x080488DB` (Phase 3 build on the agents' host, two segments
+`0x08006000–0x0800627B` and `0x08006280–0x080488DB`, about 266 kB; the exact end changes with each build and the CI
+build differs by a few bytes; the `.hex` file holds its own addresses). Only the 8 kB flash pages covering that range
+are erased. Margin to NVM3: about 1.18 MB (`0x080488DC` to `0x08176000`).
 **Not touched:** the bootloader area `0x08000000–0x08005FFF`, NVM3 `0x08176000–0x0817DFFF` (Zigbee network keys and
 settings), the end of flash `0x0817E000–0x0817FFFF`, the user-data/manufacturing token pages, lock bits, the Secure
 Engine. **Irreversible operations: none.**
@@ -77,9 +78,14 @@ valid restore image; `_b` is the reference.
   `firmware/xiao_mg24_rgb_lamp.slcp`; placed by the linker, not stored in the `.hex`). It holds the Zigbee stack's
   tokens (network key, PAN, …) and, from Phase 2, the lamp's own settings (balance, fade time) in one object under
   the application's key `0x0A100` (user domain `0x00000–0x0FFFF`; the stack's objects are in `0x10000–0x1FFFF`).
+  From Phase 3 a second application object, `0x0A101`, holds the last light state (on/off, level, colour, start-up
+  attributes); `zigbee reset` deletes only that one and the stack's network data, never `0x0A100`.
+* **First boot of the Phase 3 image over Phase 2:** the balance and fade time (`0x0A100`) are read as before and
+  kept. There is no `0x0A101` yet, so the lamp starts **off** and not joined (Phase 2 never joined). The stack finds
+  no network in its tokens and waits for `zigbee join`. Nothing in NVM3 is erased or rewritten by the update.
 * **§3 never erases or writes NVM3, nor any page outside the `.hex` segments.** `program … verify reset exit` erases
-  only the 8 kB pages that cover the `.hex` segments, which end far below NVM3 (Phase 2:
-  `0x0803E9D3`; `scripts/check_image.py` from AUR-412 is meant to reject any segment outside the application area).
+  only the 8 kB pages that cover the `.hex` segments, which end far below NVM3 (Phase 3:
+  `0x080488DB`; `scripts/check_image.py` from AUR-412 is meant to reject any segment outside the application area).
   So:
   * flashing a new build of the lamp over an older one **keeps** the lamp's settings and its Zigbee network (no
     re-pairing);
@@ -107,6 +113,16 @@ valid restore image; `_b` is the reference.
 
 ## 3. Flash the application, verify, reset
 
+**Backup first.** The backup of §2 stays valid as long as the bootloader area has not changed; our images never write
+it. To check it without a new full backup (read-only, Linux; Windows in §6.2a), read the first 24 kB and compare them
+with the backup:
+```sh
+openocd -s <scripts> -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg \
+  -c "init; reset halt; dump_image boot_now.bin 0x08000000 0x6000; reset; exit"
+cmp boot_now.bin <(head -c 24576 xiao_mg24_backup_20261122_b.bin) && echo "bootloader unchanged"
+```
+`bootloader unchanged` = keep the existing backup. Any difference: stop, take a new full backup (§2) and report it.
+
 ```sh
 openocd -s <scripts> -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg \
   -c "program build/gen/build/debug/xiao_mg24_rgb_lamp.hex verify reset exit"
@@ -115,14 +131,16 @@ openocd -s <scripts> -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg \
 The log must end with `** Programming Finished **`, `** Verify Started **`, `** Verified OK **` and `** Resetting
 Target **`. Do not add `erase` or any `mass_erase` / `flash erase_address` command.
 
-## 4. What to expect (Phase 2)
+## 4. What to expect (Phase 3)
 
-1. The external RGB LED stays **off** after the flash and after every reset, until you send a command.
-2. Open the console over RTT (§4.1). Type `help` + Enter: the `rgb_lamp>` prompt answers, and `lamp status` prints
-   the lamp's state. The bench tests are in `docs/bench-test.md`.
-3. The boot messages (`OpenSource XIAO-MG24-RGB-LiPo 0.2.0-phase2 …`, `Recovery: awake for 10000 ms after reset`) are
+1. First boot of the Phase 3 image: the external RGB LED stays **off**. Later boots restore the last light state
+   (or what the start-up attributes ask for, `zigbee.md` §4).
+2. Open the console over RTT (§4.1). Type `help` + Enter: the `rgb_lamp>` prompt answers; `lamp status` prints the
+   lamp's state and `zigbee status` the network state. The bench tests are in `docs/bench-test.md` §3.
+3. The boot messages (`OpenSource XIAO-MG24-RGB-LiPo 0.3.0-phase3 …`, `Recovery: awake for 10000 ms after reset`) are
    printed before OpenOCD attaches, so you usually will not see them. They are not needed.
-4. The device does **not** join Zigbee on its own (Zigbee control of the lamp is Phase 3).
+4. The device does **not** join Zigbee on its own: `zigbee join` after opening permit-join in Zigbee2MQTT
+   (`zigbee.md` §2). Once joined, it rejoins the same network by itself after a reset.
 
 ### 4.1 Console over SEGGER RTT (Linux; Windows in §6.5)
 The console goes through the same CMSIS-DAP link as flashing: no serial port, no driver. OpenOCD reads and writes
@@ -236,6 +254,16 @@ Format-Hex -Path $backup | Select-Object -First 4   # first 64 bytes (replaces x
 * Copy the `.bin` somewhere other than this PC as well (USB stick, cloud).
 * `Error: unable to find a CMSIS-DAP device`: check the cable (data, not charge-only), close the Arduino IDE and any
   serial monitor, and try again. Report the full log if it persists.
+
+### 6.2a Check that the bootloader area is unchanged (read-only, before §6.3)
+```powershell
+Set-Location "$HOME\xiao_mg24_backups"
+& $openocd -s $scripts -f interface/cmsis-dap.cfg -f target/efm32s2_g23.cfg -c "init; reset halt; dump_image boot_now.bin 0x08000000 0x6000; reset; exit"
+$a = [IO.File]::ReadAllBytes("$PWD\boot_now.bin"); $b = [IO.File]::ReadAllBytes("$PWD\xiao_mg24_backup_20261122_b.bin")
+$diff = 0; for ($i = 0; $i -lt 0x6000; $i++) { if ($a[$i] -ne $b[$i]) { $diff++ } }; "length $($a.Length), differing bytes: $diff"
+```
+`length 24576, differing bytes: 0` = the bootloader is unchanged and the existing backup is still the one to keep.
+Anything else: stop, take a new full backup (§6.2) and report it.
 
 ### 6.3 Flash the application, verify, reset
 Copy `xiao_mg24_rgb_lamp.hex` (from `scripts/build.sh` or the CI artifact) into the same folder, then:

@@ -13,17 +13,21 @@ firmware/
   config/app_config.h              ALL pins, polarity, thresholds, profiles (no pin elsewhere)
   config/zcl/zcl_config.zap        ZCL endpoints/clusters/attributes (ZAP)
   src/main.c                       start-up and super-loop
-  src/zigbee.c, zigbee_app.h       network, clusters, reporting
+  src/zigbee.c, zigbee_app.h       start-up, network callbacks, polling
+  src/zigbee_light.[ch]            endpoint 1 light: attributes -> lamp, Identify, last state (NVM3, debounced)
+  src/zigbee_cli.[ch]              `zigbee join|leave|status|reset|rfswitch` console commands
+  src/color.[ch]                   HSV, CIE xy, colour temperature -> RGB
   src/rgb_led.[ch]                 TIMER0 PWM on the LED pins, EM1 while lit
   src/lamp.[ch]                    colour, gamma, balance (NVM3), fades, effects
   src/lamp_cli.[ch]                `lamp ...` bench commands; console on SEGGER RTT (no UART)
   src/battery.[ch]                 ADC, voltage -> percentage
   src/power_manager.[ch]           boot window, escape pin, sleep policy, low battery
-  src/storage.[ch]                 persistent settings (NVM3)
+  src/storage.[ch]                 NVM3: balance/fade 0x0A100, last light state 0x0A101
+zigbee2mqtt/xiao_mg24_rgb_lamp.mjs Zigbee2MQTT 2.x external converter
 scripts/build.sh                   generate + build from the command line
 scripts/check_image.py             image safety gate: no byte outside the application area
 .github/workflows/firmware.yml     CI: pinned tools, build, image gate, 14-day artifact
-docs/                              feasibility, framework, pinout, wiring, assumptions, flashing, bench test, roadmap
+docs/                              feasibility, framework, pinout, wiring, assumptions, flashing, zigbee, bench test, roadmap
 build/                             generated project and binaries (git-ignored, never committed)
 ```
 
@@ -48,7 +52,8 @@ scripts/check_image.py     # fails if the .hex writes outside 0x08006000-0x08175
 
 `check_image.py` (Python standard library only) enforces the promise in `docs/flashing.md`: the image never touches
 the bootloader (`0x08000000-0x08005FFF`), NVM3 (`0x08176000-0x0817DFFF`) or the end of flash. It prints the image's
-segments; the current build gives `0x08006000-0x0800627C` and `0x08006280-0x0803E9CC` (end exclusive). Run it after every build and
+segments; the current (Phase 3) build gives `0x08006000-0x0800627C` and `0x08006280-0x080488DC` (end exclusive),
+about 1.18 MB below NVM3. Run it after every build and
 before handing an image to the operator.
 
 CI (`.github/workflows/firmware.yml`) does the same on every push and pull request to `main`, with the pinned tools
@@ -92,6 +97,9 @@ the prebuilt stack's `neighbor.c` (LTO), and unused `cli_cmd_zcl_*` variables in
 
 * Simplicity SDK APIs only (`sl_*`, emlib, `sl_zigbee_af_*`). No Arduino APIs, no mixing.
 * Pins and thresholds only in `firmware/config/app_config.h`; logic in `src/`.
+* ZCL attributes are RAM attributes. Never mark a light attribute NVM in the `.zap` (the framework would write flash
+  on every transition step): persistence goes through `zigbee_light.c`'s debounced NVM3 object.
+* The lamp never joins on its own (no steering autostart, no auto-join at boot); pairing is `zigbee join`.
 * No dynamic allocation in application code; event-driven (`sl_zigbee_af_event_*`, sleeptimer), no busy loops.
 * Commit generated output? **No**: commit the `.slcp`, `config/` and `src/`, never `build/`.
 * Commit messages: one line saying what the lamp or its user gets, e.g.

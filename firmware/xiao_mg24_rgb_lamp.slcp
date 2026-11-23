@@ -10,9 +10,10 @@ category: Zigbee Application
 quality: experimental
 description: >
   Battery-powered Zigbee 3.0 RGB lamp (sleepy end device) for the Seeed Studio
-  XIAO MG24. Phase 2: local RGB lamp (TIMER0 PWM, gamma, balance in NVM3,
-  fades, effects) driven from a bench console over SEGGER RTT. Never joins a
-  network on its own.
+  XIAO MG24. Phase 3: endpoint 1 is an Extended Color Light (On/Off, Level,
+  Color Control XY/HS/colour temperature, Groups, Scenes, Identify) driving the
+  Phase 2 lamp (TIMER0 PWM, gamma, balance, fades); last state kept in NVM3;
+  bench console over SEGGER RTT. Never joins a network on its own.
 
 sdk:
   id: simplicity_sdk
@@ -38,6 +39,12 @@ component:
   - id: zigbee_core_cli
   - id: zigbee_basic
   - id: zigbee_identify
+  - id: zigbee_groups_server
+  - id: zigbee_scenes
+  - id: zigbee_on_off
+  - id: zigbee_level_control
+  - id: zigbee_color_control_server
+  - id: zigbee_reporting
   - id: zigbee_end_device_support
   - id: zigbee_network_steering
   - id: zigbee_scan_dispatch
@@ -60,6 +67,29 @@ configuration:
     value: SLI_ZIGBEE_NETWORK_DEVICE_TYPE_SLEEPY_END_DEVICE
   - name: SLI_ZIGBEE_PRIMARY_NETWORK_SECURITY_TYPE
     value: SLI_ZIGBEE_NETWORK_SECURITY_TYPE_3_0
+  # Pairing is on demand only (`zigbee join`): no steering at start-up even if
+  # some code called the autostart helper.
+  - name: SL_ZIGBEE_AF_PLUGIN_NETWORK_STEERING_ENABLE_AUTOSTART
+    value: 0
+  # CurrentLevel 1..254 (0 would be "on but dark"; 255 is reserved in ZCL).
+  - name: SL_ZIGBEE_AF_PLUGIN_LEVEL_CONTROL_MINIMUM_LEVEL
+    value: 1
+  - name: SL_ZIGBEE_AF_PLUGIN_LEVEL_CONTROL_MAXIMUM_LEVEL
+    value: 254
+  # Z2M configures reports for on/off, level, colour mode, x, y, hue,
+  # saturation and colour temperature: 8 entries, plus a margin.
+  - name: SL_ZIGBEE_AF_PLUGIN_REPORTING_TABLE_SIZE
+    value: 12
+  # Scenes are stored with the stack's tokens (NVM3 Zigbee domain), written
+  # only on a "store scene" command.
+  - name: SL_ZIGBEE_AF_PLUGIN_SCENES_TABLE_SIZE
+    value: 8
+  # Parent lost (coordinator restarted, router unplugged): keep trying to
+  # rejoin, every SL_ZIGBEE_AF_PLUGIN_END_DEVICE_SUPPORT_MOVE_DELAY_SECONDS
+  # (10 s), instead of giving up after 4 attempts and staying offline until
+  # the next reset. 255 = never stop. Phase 5 revisits the cost on battery.
+  - name: SL_ZIGBEE_AF_REJOIN_ATTEMPTS_MAX
+    value: 255
   - name: SL_CLI_MAX_INPUT_ARGUMENTS
     value: 16
   - name: SL_CLI_PROMPT_STRING
@@ -101,6 +131,9 @@ source:
   - path: src/storage.c
   - path: src/lamp.c
   - path: src/lamp_cli.c
+  - path: src/color.c
+  - path: src/zigbee_light.c
+  - path: src/zigbee_cli.c
 
 include:
   - path: config
@@ -115,6 +148,9 @@ include:
       - path: lamp.h
       - path: lamp_cli.h
       - path: zigbee_app.h
+      - path: color.h
+      - path: zigbee_light.h
+      - path: zigbee_cli.h
 
 config_file:
   - path: config/zcl/zcl_config.zap

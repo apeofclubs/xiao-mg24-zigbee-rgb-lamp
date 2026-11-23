@@ -61,12 +61,12 @@ From [S1] (pin map), cross-checked against the schematic net names [S2] and the 
 | D1 | PC01 | `PC01/A1/D1` | none (Arduino escape pin) | **Escape input** |
 | D2 | PC02 | `PC02/A2/D2` | none | **LED green** |
 | D3 | PC03 | `PC03/A3/D3` | none | **LED blue** |
-| D4 | PC04 | `PC04/A4/D4/SDA` | none (I2C SDA in Arduino) | free (future button) |
+| D4 | PC04 | `PC04/A4/D4/SDA` | none (I2C SDA in Arduino) | free |
 | D5 | PC05 | `PC05/A5/D5/SCL` | none (I2C SCL in Arduino) | free |
 | D6 | PC06 | `PC06/A6/D6/TX` | none (Serial1 TX in Arduino) | free |
 | D7 | PC07 | `PC07/A7/D7/RX` | none (Serial1 RX in Arduino) | free |
 | D8 | PA03 | `PA03/A8/D8/SCLK` | none | free; see note on PA03 |
-| D9 | PA04 | `PA04/A9/D9/MISO` | none | free |
+| D9 | PA04 | `PA04/A9/D9/MISO` | none | free; proposed optional pairing button (port A: can wake the chip from EM2), `zigbee.md` §8 |
 | D10 | PA05 | `PA05/A10/D10/MOSI` | none | free |
 | 3V3 | – | `+3V3` | output of buck U2 (TPS628438) | LED common anode (if anode variant) |
 | GND | – | `GND` | | LED common cathode |
@@ -92,12 +92,12 @@ From [S1] (pin map), cross-checked against the schematic net names [S2] and the 
 
 ## GPIO drive limits
 
-The design keeps every pin at **a few mA** (see `wiring.md`: about 1.5 mA red, about 2 mA green/blue, worst case
-under 10 mA even with a shorted LED), far below what microcontroller GPIOs are rated for. The exact EFR32MG24 figures
-(maximum current per pin, total I/O current, VOH/VOL at a given load) are in the datasheet [S6], sections
-"Absolute Maximum Ratings" and "GPIO Pins". **I could not extract text from that PDF on the build host**, so the
-figures are not quoted here. Checking them against the datasheet tables is open item H9 in `hardware-assumptions.md`,
-and the resistor values stay valid whatever those figures are.
+Measured on the operator's bench (`wiring.md`, 2026-11-23): red 10 mA (100 Ω), green 2.7 mA (220 Ω), blue 3.3 mA
+(100 Ω) at 100 % duty. The design margin is **10 mA per pin**, reached by red: never under 100 Ω on red. The exact
+EFR32MG24 figures (maximum current per pin, total I/O current, VOH/VOL at a given load) are in the datasheet [S6],
+sections "Absolute Maximum Ratings" and "GPIO Pins". **I could not extract text from that PDF on the build host**, so
+the figures are not quoted here. Checking them against the datasheet tables is open item H9 in `hardware-assumptions.md`,
+and the 10 mA margin is to be checked against them.
 
 ## Energy-mode notes that constrain the pins
 
