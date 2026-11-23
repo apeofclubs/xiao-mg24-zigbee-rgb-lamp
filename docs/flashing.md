@@ -26,9 +26,10 @@ Engine. **Irreversible operations: none.**
   core's `platform.txt` use for the XIAO MG24.
 * No J-Link, so no Simplicity Commander: Commander does not talk to the XIAO's CMSIS-DAP probe.
 * The firmware file is `xiao_mg24_rgb_lamp.hex`. Get it one of two ways:
-  * **CI artifact** (no tools to install): on GitHub, *Actions* > workflow *firmware* > the run for the task branch's
-    latest commit > *Artifacts* > download the zip (kept 14 days) and extract `xiao_mg24_rgb_lamp.hex`. The run must
-    be green: it means the build passed and `scripts/check_image.py` accepted the image.
+  * **CI artifact** (no tools to install): CI runs on pull requests to `main` (and on pushes to `main`). Open the
+    pull request for the task branch, then on GitHub *Actions* > workflow *firmware* > the run for its latest commit >
+    *Artifacts* > download the zip (kept 14 days) and extract `xiao_mg24_rgb_lamp.hex`. The run must be green: it
+    means the build passed and `scripts/check_image.py` accepted the image.
   * **Local build**: `scripts/build.sh`, then `scripts/check_image.py`; the file is
     `build/gen/build/debug/xiao_mg24_rgb_lamp.hex`.
 
