@@ -179,6 +179,39 @@ Report: the delays, direct and through the group.
 
 Report: the console output of `zigbee reset` and `lamp balance`, and whether re-pairing worked.
 
+### 3.9 Pairing / factory-reset button (D9)
+Wiring first: `wiring.md`, "Pairing / reset button" (continuity: open at rest, closed pressed). Flash the new build
+(§3.0 procedure: backup, then the `.hex`). Keep the RTT console open: every press prints a `Button: …` line.
+1. Boot: the console prints `Button D9: ready`. (With the button held during reset it prints `held at boot: ignored
+   until released`, and the press does nothing until released.)
+2. **Short press, joined**: the LED shows green 2 s, then its previous state. Console: `Button: already joined`.
+   `zigbee status` still `joined`; Z2M still controls the lamp.
+3. **Cancelled hold**: hold about 5 s. From 3 s the LED blinks red; let go before 10 s. Console: `Button: released,
+   factory reset cancelled`. The lamp shows its previous state, `zigbee status` still `joined`.
+4. **Hold 10 s**: blinks red from 3 s, then solid red 2 s, then off. Console: `Button: held 10 s, factory reset` and
+   `Factory reset: …`. `zigbee status`: `no network`; `lamp balance` unchanged; Z2M shows the lamp leaving (or not
+   responding: *Remove* it).
+5. **Short press, not joined, permit join closed**: blue blinking, then after up to about a minute amber 2 s;
+   console `Join failed`.
+6. **Short press, permit join open** in Z2M: blue blinking, then green 2 s, console `Join done` and `Network up`;
+   the interview completes in Z2M and HA controls the lamp again.
+7. Identify from Z2M, then a short press during the blinking: green 2 s, then the Identify blinking resumes.
+
+Report: for each step, yes/no and anything unexpected (colour, timing), plus the console lines.
+
+### 3.10 Battery through the JST connector
+Battery measurement (voltage in Z2M) is Phase 4; this is only the connection.
+1. Before the first plug-in, the polarity steps 1–4 of `wiring.md`, "Battery connection": cell + pin, pigtail end
+   that reads positive, continuity BAT+ pad ↔ that contact. Report the pitch you measured (JST series) and the
+   readings (V).
+2. USB unplugged, plug the cell: red probe on BAT+, black on BAT−: positive, about the cell's voltage (3.98 V
+   measured earlier). Negative: **unplug at once**, report.
+3. The lamp boots on the battery alone (it is off and not joined until you press or `zigbee join`; a joined lamp
+   rejoins). Short press: it reacts as in §3.9 (the RTT console needs the USB cable; without it, judge by the LED).
+4. Plug USB: the XIAO's CHARGE LED lights or flashes while charging; after about 10 min, the cell is not warm.
+
+Report: pitch, the three voltages, and steps 3–4 yes/no.
+
 ### What to send back (Phase 4 gate)
 1. §3.0 checks, the lamp's parent in the Z2M map (H13), and your Z2M versions only if they changed.
 2. Final `lamp balance` (§3.1).
@@ -187,6 +220,7 @@ Report: the console output of `zigbee reset` and `lamp balance`, and whether re-
 5. Behaviour after a lamp reset (§3.4) and after a coordinator restart (§3.5).
 6. H6 table (§3.6); H10 delays incl. the group (§3.7).
 7. Factory reset and re-pairing (§3.8).
+8. Button (§3.9) and battery connection (§3.10).
 
 ## 4. If something goes wrong
 

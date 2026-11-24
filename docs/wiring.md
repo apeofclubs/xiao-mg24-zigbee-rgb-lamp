@@ -11,10 +11,13 @@
 | 1 | RGB LED, 4 pins, conventional (not WS2812) | Elegoo kit LED. **Common cathode** (H3 confirmed on the bench, 2026-11-22); common anode supported |
 | 2 | 100 Ω resistor, ¼ W or 0603/0805 | red and blue channels (as wired and measured on the bench, 2026-11-23); **never below 100 Ω on red** |
 | 1 | 220 Ω resistor | green channel |
-| 1 | LiPo cell Liter Energy 902025, 3.7 V 400 mAh, red/black leads | **with a protection circuit** (H1) |
+| 1 | LiPo cell Liter Energy 902025, 3.7 V 400 mAh, red/black leads, **1 cell** (3.7 V nominal; 3.98 V measured 2026-11-24) | **with a protection circuit** (H1), plugged through a JST connector |
+| 1 | 2-pin JST pigtail matching the cell's plug (most likely JST-PH, 2.0 mm pitch: measure, table below) | soldered on BAT+ / BAT− |
+| 1 | Push button, 4-pin tactile switch (e.g. 6 × 6 mm) | pairing / factory reset, on D9; two **diagonal** pins used |
 | – | thin silicone wire (e.g. 28–30 AWG), heat-shrink | |
 
-No MOSFET, no external divider, no second charger.
+No MOSFET, no external divider, no second charger, no resistor or capacitor on the button (internal pull-up and
+filter).
 
 ## Diagram: common-cathode LED (default, `APP_LED_COMMON_CATHODE = 1`)
 
@@ -24,22 +27,32 @@ No MOSFET, no external divider, no second charger.
       R 100 Ω      │ D0  PC00                     5V     │  ← nothing connected
  LED R ──/\/\/\────┤                                     │
                    │ D1  PC01  (escape: GND at boot      │
-                   │            = never sleep)   GND ────┼──────────┐
-      R 220 Ω      │ D2  PC02                            │          │
- LED G ──/\/\/\────┤                             3V3     │          │
-      R 100 Ω      │ D3  PC03                            │          │
- LED B ──/\/\/\────┤                                     │          │
-                   │ D4 … D10   free                     │          │
-                   │                                     │          │
+                   │            = never sleep)   GND ────┼──────────┬───────────┐
+      R 220 Ω      │ D2  PC02                            │          │           │
+ LED G ──/\/\/\────┤                             3V3     │          │           │
+      R 100 Ω      │ D3  PC03                            │          │      ┌────┴────┐
+ LED B ──/\/\/\────┤                                     │          │      │ button  │ 4-pin tactile,
+                   │ D4 … D8   free             D9 PA04 ─┼──────────┼──────┤ (2 pins │ two diagonal
+                   │                            D10 free │          │      │diagonal)│ pins used
+                   │                                     │          │      └─────────┘
                    │      underside:  BAT+   BAT-        │          │
                    └────────────────────┬──────┬─────────┘          │
-                                        │      │                    │
-                           red ─────────┘      └──────── black      │
-                         ┌───────────────────────────┐              │
-                         │ LiPo 902025 400 mAh + PCM │              │
+                                        │      │  pigtail           │
+                                  red ──┘      └── black            │
+                                     ┌──┴──────┴──┐                 │
+                                     │ JST socket │                 │
+                                     └──┬──────┬──┘                 │
+                                     ┌──┴──────┴──┐  check polarity │
+                                     │  JST plug  │  before plug-in │
+                                     └──┬──────┬──┘                 │
+                         ┌──────────────┴──────┴─────┐              │
+                         │ LiPo 902025 400 mAh + PCM │  1 cell only │
                          └───────────────────────────┘              │
  LED common (cathode, longest leg) ─────────────────────────────────┘
 ```
+
+The LED cathode and the button share the XIAO's **GND pad** (both wires on that pad, or joined first and then one
+wire to the pad). **BAT− is never used as a ground** for the LED or the button.
 
 ## Diagram: common-anode LED (set `APP_LED_COMMON_CATHODE = 0` in `firmware/config/app_config.h`)
 
@@ -99,18 +112,77 @@ The measured Vf are higher than assumed (red 2.30 V, blue 2.97 V), which is why 
   the buck can no longer hold 3.3 V, and blue then green dim first, then go out. The low-battery policy (Phase 4)
   accounts for this.
 
+## Pairing / reset button (D9)
+
+A standard 4-pin tactile switch has its pins connected in two pairs inside: the two pins of a pair are always
+connected, the button connects one pair to the other. Using two **diagonally opposite** pins always goes through the
+switch, whichever way the part is turned, so no need to know which pins are paired.
+
+1. One diagonal pin → **D9** (PA04). The other diagonal pin → **GND** (the same GND pad as the LED cathode, or a
+   junction with it). The two other pins stay unconnected.
+2. Nothing else: no resistor, no capacitor. The firmware turns on D9's internal pull-up and input filter.
+3. Never wire the button to 3V3, 5V or BAT+: pressed, it would short that supply to D9 or to GND.
+4. Check before power: multimeter in continuity mode between D9 and GND: **open** at rest, **closed** while pressed.
+   If it beeps at rest, the two pins are on the same side of a pair, not diagonal: move one wire.
+
+What it does (`zigbee.md` §8): **short press** = pair (`zigbee join`), the lamp blinks blue while it searches, then
+green (joined) or amber (failed). **Hold**: after 3 s the lamp blinks red; let go to cancel; at **10 s** it does a
+factory reset (`zigbee reset`), shows solid red 2 s and goes off. D1 stays the recovery escape; D9 is not an escape.
+
 ## Battery connection
 
-1. **Check the cell first** (H1, H2, H8): protection circuit present, charge current ≥ 200 mA allowed, connector
-   polarity. Never trust wire colours alone. Measure with a multimeter: red lead positive, about 3.7–4.2 V.
-2. The XIAO MG24's battery pads are on the **underside**. Seeed: "The negative terminal of the power supply should be
-   the side closest to the USB port, and the positive terminal … is the side away from the USB port" [S1]. Check
-   against the silkscreen of your board before soldering.
-3. Solder the leads with the XIAO **unplugged from USB**. Insulate each joint with heat-shrink. Never let the two
-   leads touch. Cut and solder one lead at a time.
-4. Do not connect the cell anywhere else: not to `5V`, not to `3V3`, and not to the LED.
-5. Strain-relieve the leads (a dot of hot glue on the wires, not on the cell). A LiPo must not be pierced, crushed,
-   bent or heated. Leave a little room around it in the enclosure; a cell can swell with age.
+The cell is plugged permanently through a **2-pin JST connector**: a short pigtail (socket + two wires) is soldered on
+the XIAO's BAT+ / BAT− pads, and the cell's own plug goes into it. Use **only a 1-cell LiPo** (3.7 V nominal, 4.2 V
+full): the XIAO's charger (SGM40567-4.2) is a single-cell charger. **Never a 2-cell pack** (7.4 V; it often has a
+second, 3-pin balance plug): it would destroy the charger and the board.
+
+### Which JST: measure the pitch
+
+Pitch = distance between the centres of the two pins (or of the two holes in the socket). Calipers, or a ruler
+against both connectors side by side. The pigtail must be the same series as the cell's plug: different series do not
+mate properly and can make an intermittent or shorted contact.
+
+| Series | Pitch | Notes |
+|---|---|---|
+| **JST-PH** | **2.0 mm** | most common on small LiPo cells (Adafruit, many sellers): the most likely one here |
+| Molex PicoBlade ("JST 1.25") | 1.25 mm | common on very small cells and drones |
+| JST-ZH | 1.5 mm | |
+| JST-SH | 1.0 mm | |
+| JST-XH | 2.5 mm | usually balance plugs of multi-cell packs: if the cell has this, check it really is 1 cell |
+
+The lamp draws a few tens of mA and the charger 200 mA: any of these connectors carries that easily.
+
+### Polarity is not standard: check it before the first plug-in
+
+Sellers wire the same JST plug both ways (red on the left or on the right). A reversed cell on BAT+ / BAT− destroys
+the charger and can damage the cell. Never trust the colour of the pigtail's wires or the position of the pins: check
+with the real cell, in this order.
+
+1. **Cell alone**, multimeter in DC volts: probes on the two pins of the cell's plug. Note which pin gives a
+   **positive** reading with the red probe on it (about +3.7…4.2 V; 3.98 V measured): that is the cell's +.
+2. **Before soldering the pigtail**: plug the cell into the pigtail (pigtail not connected to anything else), measure
+   between the two free ends of the pigtail. The end that reads **positive** under the red probe goes to **BAT+**,
+   the other to **BAT−**, whatever their colour. If the pigtail's red wire reads negative, the cell and the pigtail
+   are wired opposite: mark the wires (or swap the pins in the housing, with the cell unplugged) so that the cell's
+   red wire reaches BAT+. Unplug the cell.
+3. The XIAO's battery pads are on the **underside**. Seeed: "The negative terminal of the power supply should be the
+   side closest to the USB port, and the positive terminal … is the side away from the USB port" [S1]. Check against
+   the silkscreen of your board. Solder the pigtail with the XIAO **unplugged from USB** and the cell **unplugged**,
+   one wire at a time, heat-shrink on each joint, the two wires never touching.
+4. **Continuity check, cell still unplugged**: multimeter in continuity mode between the **BAT+ pad** and the socket
+   contact that mated with the cell's + pin in step 2: it must beep. Same for BAT− and the other contact. No beep
+   between the two contacts (no short).
+5. First plug-in, USB unplugged: measure on the pads, red probe on BAT+, black on BAT−: **positive**, the cell's
+   voltage. If it reads negative, **unplug at once** and recheck steps 2–4.
+
+Then, as before:
+
+* Do not connect the cell anywhere else: not to `5V`, not to `3V3`, not to the LED, not to the button. BAT− is not
+  used as a ground.
+* Strain-relieve the pigtail (a dot of hot glue on the wires next to the pads, not on the cell) so that plugging and
+  unplugging does not pull on the pads. A LiPo must not be pierced, crushed, bent or heated. Leave a little room
+  around it in the enclosure; a cell can swell with age.
+* Unplug the cell by pulling on the plug's housing, not on the wires.
 
 ## USB-C charging from underneath
 

@@ -44,8 +44,9 @@ off fully.
   (LED blinks); manufacturer `OpenSource`, model `XIAO-MG24-RGB-LiPo` (`config/zcl/zcl_config.zap`).
 * The SDK cluster servers drive the Phase 2 lamp through one path: attributes → `lamp_apply()` → gamma, balance, PWM
   (`src/zigbee_light.c`, conversions in `src/color.c`).
-* Pairing on demand only, from the console: `zigbee join | leave | status | reset | rfswitch` (`src/zigbee_cli.c`).
-  No button wired; an optional one on D9 is proposed (`zigbee.md` §8).
+* Pairing on demand only, from the console: `zigbee join | leave | status | reset | rfswitch` (`src/zigbee_cli.c`),
+  or the **D9 button** (AUR-459, `src/button.c`, `zigbee.md` §8): short press = pair, hold 10 s = factory reset with
+  a red blinking warning from 3 s. Battery plugged permanently through a JST pigtail on BAT+/BAT− (`wiring.md`).
 * Factory reset (`zigbee reset`): leave, bindings, reporting, groups, scenes, attributes, saved last state; the
   balance (`0x0A100`) is kept. No flash erase.
 * Last state in NVM3 (`0x0A101`) with `StartUpOnOff`, `StartUpCurrentLevel`, `StartUpColorTemperatureMireds`; written
@@ -55,11 +56,12 @@ off fully.
 * H6 bench aid `zigbee rfswitch reset|0|1` (not saved). Zigbee2MQTT 2.x external converter
   `zigbee2mqtt/xiao_mg24_rgb_lamp.mjs`. Docs: `zigbee.md`, `bench-test.md` §3; measured LED currents in `wiring.md`.
 
-Status: **compiled** (AUR-437).
+Status: **compiled** (AUR-437; button and JST wiring: AUR-459, compiled).
 
 **Needs from you before Phase 4:** the Z2M "About" / "Exposes" tabs for the lamp (screenshot or text); ON/OFF,
 brightness and colour working from HA (yes/no each, with the delay you notice); behaviour after a lamp reset and a
-coordinator restart; H6 (LQI with the two RF-switch states); H10 (reaction time, Z2M groups).
+coordinator restart; H6 (LQI with the two RF-switch states); H10 (reaction time, Z2M groups); the button tests and
+the JST polarity check (`bench-test.md` §3.9, §3.10; H8, H14).
 
 ## Phase 4: battery
 

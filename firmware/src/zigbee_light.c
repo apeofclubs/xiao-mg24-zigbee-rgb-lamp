@@ -36,6 +36,7 @@ static storage_light_state_t saved;      /* what NVM3 holds (valid if have_saved
 static bool have_saved;
 static bool restored;                    /* no save before the boot restore ran */
 static bool identifying;
+static bool feedback;                    /* button feedback owns the LED (button.c) */
 static uint32_t last_write_ms;
 static bool written_once;
 static uint32_t write_count;             /* since boot, shown by `zigbee status` */
@@ -126,8 +127,8 @@ static lamp_rgb_t color_of(const storage_light_state_t *s)
 static void apply_handler(sl_zigbee_af_event_t *event)
 {
   (void)event;
-  if (identifying) {
-    return;   /* applied when Identify stops */
+  if (identifying || feedback) {
+    return;   /* applied when Identify / the button feedback stops */
   }
   storage_light_state_t s;
   read_state(&s);
@@ -269,6 +270,19 @@ void zigbee_light_factory_reset(void)
   lamp_apply(false, 254u, color_from_zcl_xy(0x616B, 0x607D), APP_ZIGBEE_FOLLOW_FADE_MS);
 }
 
+void zigbee_light_feedback(bool active)
+{
+  feedback = active;
+  if (active) {
+    return;
+  }
+  if (identifying) {
+    lamp_set_effect(LAMP_EFFECT_BLINK);
+  } else {
+    sl_zigbee_af_event_set_active(&apply_event);   /* back to the attribute state */
+  }
+}
+
 uint32_t zigbee_light_nvm_write_count(void)
 {
   return write_count;
@@ -333,7 +347,9 @@ void sl_zigbee_af_identify_start_feedback_cb(uint8_t endpoint, uint16_t identify
     return;
   }
   identifying = true;
-  lamp_set_effect(LAMP_EFFECT_BLINK);
+  if (!feedback) {
+    lamp_set_effect(LAMP_EFFECT_BLINK);
+  }
   sl_zigbee_app_debug_println("Identify: blinking for %u s", identifyTime);
 }
 

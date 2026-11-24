@@ -2,12 +2,14 @@
  * @file zigbee_cli.c
  * @brief Network commands on the RTT console (docs/zigbee.md):
  *
- *   zigbee join            start network steering (open the network in Z2M first)
+ *   zigbee join            start network steering (open the network in Z2M first);
+ *                          same as a short press on the D9 button
  *   zigbee leave           leave the network (the light keeps its state)
  *   zigbee status          network state, PAN, channel, node, parent, LQI/RSSI
  *   zigbee reset           factory reset: leave, clear bindings, reporting,
  *                          groups, scenes, light attributes and the saved last
  *                          state. The balance (NVM3 key 0x0A100) is kept.
+ *                          Same as holding the D9 button for 10 s.
  *   zigbee rfswitch [reset|0|1]
  *                          H6 bench aid: show or set the RF switch pins
  *                          PB04/PB05. Not saved: every reboot returns to the
@@ -17,7 +19,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "app/framework/include/af.h"
-#include "app/framework/plugin/network-steering/network-steering.h"
 #include "em_cmu.h"
 #include "em_gpio.h"
 #include "sl_cli.h"
@@ -72,7 +73,11 @@ static void cmd_join(sl_cli_command_arg_t *args)
            network_state_name(st));
     return;
   }
-  sl_status_t s = sl_zigbee_af_network_steering_start();
+  if (zigbee_app_is_joining()) {
+    printf("already searching: wait for \"Join done\" or \"Join failed\"\r\n");
+    return;
+  }
+  sl_status_t s = zigbee_app_join();
   printf("join: %s (0x%02lX). Result in about 10-60 s: \"Join done\" or \"Join failed\"\r\n",
          s == SL_STATUS_OK ? "searching" : "could not start", (unsigned long)s);
 }
@@ -134,15 +139,8 @@ static void cmd_status(sl_cli_command_arg_t *args)
 static void cmd_reset(sl_cli_command_arg_t *args)
 {
   (void)args;
-  sl_zigbee_network_status_t st = sl_zigbee_af_network_state();
-  if (st != SL_ZIGBEE_NO_NETWORK) {
-    sl_status_t s = sl_zigbee_leave_network(SL_ZIGBEE_LEAVE_NWK_WITH_NO_OPTION);
-    printf("leave: 0x%02lX\r\n", (unsigned long)s);
-  }
-  zigbee_app_forget_link();
-  (void)sl_zigbee_clear_binding_table();
-  sl_zigbee_af_clear_report_table_cb();
-  zigbee_light_factory_reset();
+  sl_status_t s = zigbee_app_factory_reset();   /* same as holding D9 for 10 s */
+  printf("leave: 0x%02lX\r\n", (unsigned long)s);
   printf("factory reset done: network left, bindings, reporting, groups, scenes and "
          "last state cleared; balance kept. `zigbee join` to pair again\r\n");
 }

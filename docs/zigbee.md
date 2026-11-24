@@ -40,12 +40,14 @@ last state, and the next Zigbee command replaces them.
 
 ## 2. Pairing with Zigbee2MQTT
 
-The lamp **never joins on its own**. Pairing is a console command (RTT console, `flashing.md` §6.5).
+The lamp **never joins on its own**. Pairing is a console command (RTT console, `flashing.md` §6.5) or a short
+press on the D9 button (§8).
 
 1. Optional but recommended: install the external converter first (§6), so the lamp is recognised at once.
 2. In Zigbee2MQTT: **Permit join (All)** (top bar), or permit join on the router that should become the lamp's
    parent. Leave it open for the next step.
-3. On the console: `zigbee join`. It answers `join: searching`. Within about 10–60 s the console prints
+3. On the console: `zigbee join` (or a short press on the button: the lamp blinks blue while it searches, then shows
+   green 2 s when joined, amber 2 s on failure). It answers `join: searching`. Within about 10–60 s the console prints
    `Join done: status 0x00 …` then `Network up: node 0x…, parent 0x…`. On failure it prints `Join failed: …`.
 4. In Z2M the lamp appears, the interview runs (a few seconds to a minute for a sleepy device) and ends with
    "Successfully interviewed". Close permit join.
@@ -69,7 +71,7 @@ the parent is back (no limit on the number of attempts in this bench build).
 | Console | What it does | What it keeps |
 |---|---|---|
 | `zigbee leave` | Leaves the network (sends a leave notice: Z2M removes the device) | Light state, groups, scenes, balance |
-| `zigbee reset` | **Factory reset**: leaves the network, clears the binding table, the reporting configuration, groups, scenes, all light attributes back to their defaults (off, warm white), and deletes the saved last state (NVM3 key `0x0A101`) | Your `lamp balance` and `lamp fade` (NVM3 key `0x0A100`) |
+| `zigbee reset`, or **hold the D9 button 10 s** | **Factory reset**: leaves the network, clears the binding table, the reporting configuration, groups, scenes, all light attributes back to their defaults (off, warm white), and deletes the saved last state (NVM3 key `0x0A101`) | Your `lamp balance` and `lamp fade` (NVM3 key `0x0A100`) |
 
 `zigbee reset` only uses the Zigbee stack's own leave and table functions and deletes one application NVM3 object.
 It never erases flash pages, the bootloader, lock bits, OTP, the Secure Engine, the user-data page or the
@@ -77,9 +79,9 @@ manufacturing tokens. A Basic "Reset to factory defaults" command sent from Z2M 
 not leave the network).
 
 **Re-pairing** (for example after moving the lamp to another coordinator):
-1. `zigbee reset` on the console (or, in Z2M, *Remove* the device; if Z2M cannot reach it, tick *Force remove*, then
+1. `zigbee reset` on the console or hold the button 10 s (or, in Z2M, *Remove* the device; if Z2M cannot reach it, tick *Force remove*, then
    `zigbee reset`).
-2. Permit join in Z2M, then `zigbee join` (§2).
+2. Permit join in Z2M, then `zigbee join` or a short press (§2).
 
 ## 4. Last state after a power cut, start-up behaviour
 
@@ -173,18 +175,38 @@ about 7.7 s.
 
 `zigbee status` prints the current poll interval.
 
-## 8. Optional pairing button (not wired, not in the firmware)
+## 8. Pairing / factory-reset button (D9)
 
-You have no button today, and the console covers pairing and reset. If you want one later, I propose a push button
-between **D9 (PA04)** and **GND**, internal pull-up, no other part: port A can wake the chip from EM2 (port C cannot),
-D9 is free and is not a debug, flash or USB-bridge pin. Proposed behaviour: short press = `zigbee join` when not
-joined; hold 10 s = `zigbee reset`. Say if you want it and it goes into a later phase.
+A push button between **D9 (PA04)** and **GND** (wiring: `wiring.md`, "Pairing / reset button"). Internal pull-up
+and input filter, no other part. Port A keeps its GPIO interrupt in EM2, so a press wakes the sleeping lamp. Code:
+`firmware/src/button.c`; pin and timings in `firmware/config/app_config.h` (`APP_BUTTON_*`). The console commands
+all stay.
+
+| Action | Lamp state | What happens | LED feedback |
+|---|---|---|---|
+| **Short press** (released before 3 s) | no network | Pairing starts, exactly as `zigbee join` | blinks **blue** while searching (10–60 s), then **green** 2 s (joined) or **amber** 2 s (failed: open permit join and press again) |
+| Short press | joined | Nothing changes: a short press **never leaves** a network (an accidental press must not unpair the lamp) | **green** 2 s ("I am paired") |
+| Short press | joining, or joined with its parent lost (rejoining) | Ignored | none |
+| **Hold 3 s** | any | Warning: factory reset in 7 s | blinks **red**. **Let go to cancel**: nothing happens, the lamp shows its state again |
+| **Hold 10 s** | any | **Factory reset**, exactly as `zigbee reset` (§3): steering stopped, network left, bindings, reporting, groups, scenes, attributes and saved last state cleared; balance and fade kept | solid **red** 2 s, then off (factory state). Release the button; it does nothing until released |
+
+* To move the lamp to another network: hold 10 s, then (permit join open) short press.
+* A button already held (or shorted) at boot is ignored until released: it cannot trigger a reset at power-up. It is
+  **not** a recovery escape: that stays **D1** to GND at reset (`flashing.md` §5).
+* The feedback colours are never written to the ZCL attributes nor to NVM3: when the feedback ends the lamp shows
+  its Zigbee state again (including a running Identify). Zigbee commands received during the feedback are applied
+  and saved as usual, and shown when it ends.
+* The reset writes nothing new: it uses the stack's leave and table functions and deletes the application NVM3 object
+  `0x0A101`, like `zigbee reset`. No flash erase, no bootloader, token, lock or Secure Engine access.
+* Power: no current at rest (the pull-up only conducts while pressed, about 80 µA). While the button is held, the
+  firmware wakes every 100 ms to time the hold; nothing when released.
 
 ## 9. Troubleshooting
 
 | Symptom | Check |
 |---|---|
 | `Join failed` | Permit join open in Z2M (it closes after a few minutes)? Lamp within a few metres of the coordinator or a router for the first test. `zigbee status` must say `no network` before `zigbee join` (else `zigbee reset` first). Try again; then H6 (§5). |
+| Short press does nothing | The lamp is joining or rejoining (wait), or the button is not reaching D9/GND: `wiring.md` continuity check. The console prints `Button: …` on every press |
 | `already joined` on `zigbee join` | It is still on a (maybe old) network: `zigbee reset`, then pair again. |
 | Joined, but Z2M shows no interview / "interview failed" | Sleepy devices interview slowly: wait 1 min. On the lamp's Z2M page: *Interview* again, then *Reconfigure*. |
 | Z2M shows "not supported" | The converter is not loaded (§6): check the file is in `external_converters`, restart Z2M, *Reconfigure*. |

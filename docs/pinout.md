@@ -25,6 +25,7 @@ The MCU on the schematic is `EFR32MG24B220F1536IM48-B` (U5, sheet 05 [S2]). That
 | LED green | **D2** | PC02 | TIMER0 CC1 (PWM) | Same |
 | LED blue | **D3** | PC03 | TIMER0 CC2 (PWM) | Same |
 | Recovery escape (input, pull-up) | **D1** | PC01 | GPIO | Same pad as the Arduino core's `DEEP_SLEEP_ESCAPE_PIN` [S3], so one habit works for both firmwares |
+| Pairing / factory-reset button (input, pull-up + filter, edge interrupt) | **D9** | PA04 | GPIO, EXTI | Port A keeps full GPIO function in EM2, so a press wakes the sleeping lamp (ports A/B are the safe choice for EM2 functions, energy-mode notes below and item H9); free edge pad, not a debug, flash or USB-bridge pin [S2][S3]. Wiring: `wiring.md`, "Pairing / reset button" |
 | Battery divider enable | (internal) | PD03 `VBAT_CTL` | GPIO out | Fixed by the board [S2] |
 | Battery voltage | (internal) | PD04 `VBAT_ADC` | IADC | Fixed by the board [S1][S2] |
 | USART to the SAMD11 (USB serial) | (internal, D12 / D11 pads) | PA08 / PA09 | unused from Phase 2 | The console moved to SEGGER RTT over SWD (`flashing.md` §4.1); the pins are left in their reset state |
@@ -35,7 +36,10 @@ reach port C on this part**: the SDK pin-tool data [S5] (`EFR32MG24B220F1536IM48
 32–41, i.e. PC00–PC09, for each of TIMER0 CC0, CC1 and CC2 (checked for Phase 2, 2026-11-23).
 
 The firmware sets D0/D2/D3 to push-pull at the "off" level for the configured LED polarity at boot; from Phase 2,
-TIMER0 drives a pin only while its channel is above 0. It reads D1 once at boot and then disables it. It does not
+TIMER0 drives a pin only while its channel is above 0. It reads D1 once at boot and then disables it. D9 stays an
+input with its internal pull-up and glitch filter (`gpioModeInputPullFilter`) and an interrupt on both edges; no
+current flows through the pull-up unless the button is pressed (about 3.3 V / 40 kΩ ≈ 80 µA while held; the pull-up
+value is the typical one, datasheet item H9). It does not
 touch PD03/PD04 (see `hardware-assumptions.md`, item H4).
 
 ### Check against the pins Seeed reserves (Seeed wiki, page updated 2024-10-17)
@@ -66,12 +70,12 @@ From [S1] (pin map), cross-checked against the schematic net names [S2] and the 
 | D6 | PC06 | `PC06/A6/D6/TX` | none (Serial1 TX in Arduino) | free |
 | D7 | PC07 | `PC07/A7/D7/RX` | none (Serial1 RX in Arduino) | free |
 | D8 | PA03 | `PA03/A8/D8/SCLK` | none | free; see note on PA03 |
-| D9 | PA04 | `PA04/A9/D9/MISO` | none | free; proposed optional pairing button (port A: can wake the chip from EM2), `zigbee.md` §8 |
+| D9 | PA04 | `PA04/A9/D9/MISO` | none | **Pairing / factory-reset button** to GND (port A: wakes the chip from EM2), `zigbee.md` §8 |
 | D10 | PA05 | `PA05/A10/D10/MOSI` | none | free |
 | 3V3 | – | `+3V3` | output of buck U2 (TPS628438) | LED common anode (if anode variant) |
-| GND | – | `GND` | | LED common cathode |
+| GND | – | `GND` | | LED common cathode **and** button (same pad, or one junction); never BAT− |
 | 5V | – | `VBUS` | USB-C VBUS | **never connect anything** |
-| BAT+ / BAT- (underside pads) | – | `VBAT` | charger U1 (SGM40567-4.2) | LiPo cell |
+| BAT+ / BAT- (underside pads) | – | `VBAT` | charger U1 (SGM40567-4.2) | LiPo cell, through a JST pigtail (`wiring.md`, "Battery connection"). 1 cell only |
 
 ## Pins to avoid
 

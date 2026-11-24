@@ -13,7 +13,8 @@ description: >
   XIAO MG24. Phase 3: endpoint 1 is an Extended Color Light (On/Off, Level,
   Color Control XY/HS/colour temperature, Groups, Scenes, Identify) driving the
   Phase 2 lamp (TIMER0 PWM, gamma, balance, fades); last state kept in NVM3;
-  bench console over SEGGER RTT. Never joins a network on its own.
+  bench console over SEGGER RTT; pairing / factory-reset button on D9.
+  Never joins a network on its own.
 
 sdk:
   id: simplicity_sdk
@@ -52,6 +53,7 @@ component:
   - id: clock_manager
   - id: power_manager
   - id: emlib_gpio
+  - id: gpio          # D9 button edge interrupt (sl_gpio_configure_external_interrupt)
   - id: emlib_timer
   - id: toolchain_gcc_lto
     condition:
@@ -134,6 +136,7 @@ source:
   - path: src/color.c
   - path: src/zigbee_light.c
   - path: src/zigbee_cli.c
+  - path: src/button.c
 
 include:
   - path: config
@@ -151,6 +154,7 @@ include:
       - path: color.h
       - path: zigbee_light.h
       - path: zigbee_cli.h
+      - path: button.h
 
 config_file:
   - path: config/zcl/zcl_config.zap

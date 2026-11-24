@@ -114,6 +114,25 @@
 #define APP_ESCAPE_PIN               1
 
 /* ---------------------------------------------------------------------------
+ * Pairing / factory-reset button (operator, 2026-11-24, AUR-459)
+ * Push button between pad D9 (PA04, schematic net PA04/A9/D9/MISO) and GND,
+ * internal pull-up with the input glitch filter, no external part. Port A
+ * keeps its GPIO interrupts in EM2, so a press wakes the sleeping lamp.
+ * PA04 is not a debug, flash or USB-bridge pin (docs/pinout.md).
+ *   short press (released before APP_BUTTON_WARN_MS): pair (= `zigbee join`)
+ *   held APP_BUTTON_WARN_MS: the lamp blinks red, let go to cancel
+ *   held APP_BUTTON_FACTORY_RESET_MS: factory reset (= `zigbee reset`)
+ * A button already held at boot is ignored until it is released.
+ * ------------------------------------------------------------------------- */
+#define APP_BUTTON_PORT              gpioPortA   /* pad D9 */
+#define APP_BUTTON_PIN               4
+#define APP_BUTTON_DEBOUNCE_MS       30u     /* level read this long after the last edge */
+#define APP_BUTTON_TICK_MS           100u    /* hold timing while pressed */
+#define APP_BUTTON_WARN_MS           3000u   /* red blinking starts; shorter = short press */
+#define APP_BUTTON_FACTORY_RESET_MS  10000u
+#define APP_BUTTON_FEEDBACK_MS       2000u   /* solid colour after an action */
+
+/* ---------------------------------------------------------------------------
  * Battery measurement (Phase 4). Schematic nets PD03/VBAT_CTL and
  * PD04/VBAT_ADC. Phase 1 does not touch these pins.
  * ------------------------------------------------------------------------- */
