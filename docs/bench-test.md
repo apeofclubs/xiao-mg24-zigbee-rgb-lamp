@@ -32,7 +32,7 @@ running effect.
 | `lamp level <0-100>` | Brightness in %, gamma-corrected (50 % looks about half as bright). `0` turns off and keeps the previous level for the next colour command. |
 | `lamp off` | Fades to off. |
 | `lamp white` | Balanced white (255, 255, 255 through the balance) and prints the balance: use it to judge the balance. |
-| `lamp balance` | Shows the balance (default red 100 %, green 40 %, blue 70 %). |
+| `lamp balance` | Shows the balance (default red 100 %, green 100 %, blue 100 %: a good white with 100/220/100 Ω). |
 | `lamp balance <r> <g> <b>` | Sets the balance, 0–100 % per channel, applies it at once and **saves it** (kept across resets and reflashing). |
 | `lamp preset <name>` | Named colour: `warmwhite`, `white`, `red`, `green`, `blue`, `orange`, `yellow`, `purple`, `cyan`, `pink`. `lamp preset` alone lists them. |
 | `lamp fade <ms>` | Transition time for the next changes, 0–10000 ms (0 = instant); default 400 ms; **saved**. |

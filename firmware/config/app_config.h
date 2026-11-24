@@ -44,13 +44,13 @@
 #define APP_LED_PWM_FREQUENCY_HZ     1000
 
 /* Per-channel balance, percent of full PWM for that channel (0..100).
- * Defaults estimated from the operator's bench test (no firmware, 3V3 through
- * the resistors): red 220 ohm (about 6 mA) looked the dimmest, then blue, and
- * green 330 ohm (about 1-1.5 mA) the brightest. Starting point only: tune with
- * `lamp white` and `lamp balance`; the tuned values are kept in NVM3. */
+ * Defaults from the operator's bench (2026-11-23): with red 100 ohm, green
+ * 220 ohm and blue 100 ohm, 100/100/100 gives a good white. Re-tune with
+ * `lamp white` and `lamp balance`; the tuned values are kept in NVM3 and win
+ * over these defaults. */
 #define APP_LED_BALANCE_RED_DEFAULT    100u
-#define APP_LED_BALANCE_GREEN_DEFAULT  40u
-#define APP_LED_BALANCE_BLUE_DEFAULT   70u
+#define APP_LED_BALANCE_GREEN_DEFAULT  100u
+#define APP_LED_BALANCE_BLUE_DEFAULT   100u
 
 /* Colour transitions: default fade time and the tick that drives fades and
  * effects (a Zigbee application-framework event, so it wakes the main loop). */
