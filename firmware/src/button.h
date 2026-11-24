@@ -1,6 +1,6 @@
 /**
  * @file button.h
- * @brief Pairing / factory-reset button on pad D9 (PA04) to GND (button.c,
+ * @brief On/off and pairing button on pad D9 (PA04) to GND (button.c,
  *        docs/zigbee.md section 8).
  */
 #ifndef BUTTON_H

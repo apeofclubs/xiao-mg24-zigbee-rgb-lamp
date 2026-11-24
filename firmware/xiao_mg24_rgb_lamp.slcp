@@ -13,7 +13,7 @@ description: >
   XIAO MG24. Phase 3: endpoint 1 is an Extended Color Light (On/Off, Level,
   Color Control XY/HS/colour temperature, Groups, Scenes, Identify) driving the
   Phase 2 lamp (TIMER0 PWM, gamma, balance, fades); last state kept in NVM3;
-  bench console over SEGGER RTT; pairing / factory-reset button on D9.
+  bench console over SEGGER RTT; on/off and pairing button on D9.
   Never joins a network on its own.
 
 sdk:

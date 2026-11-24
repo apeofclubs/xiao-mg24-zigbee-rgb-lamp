@@ -13,7 +13,7 @@
 | 1 | 220 Ω resistor | green channel |
 | 1 | LiPo cell Liter Energy 902025, 3.7 V 400 mAh, red/black leads, **1 cell** (3.7 V nominal; 3.98 V measured 2026-11-24) | **with a protection circuit** (H1), plugged through a JST connector |
 | 1 | 2-pin JST pigtail matching the cell's plug (most likely JST-PH, 2.0 mm pitch: measure, table below) | soldered on BAT+ / BAT− |
-| 1 | Push button, 4-pin tactile switch (e.g. 6 × 6 mm) | pairing / factory reset, on D9; two **diagonal** pins used |
+| 1 | Push button, 4-pin tactile switch (e.g. 6 × 6 mm) | on/off and pairing, on D9; two **diagonal** pins used |
 | – | thin silicone wire (e.g. 28–30 AWG), heat-shrink | |
 
 No MOSFET, no external divider, no second charger, no resistor or capacitor on the button (internal pull-up and
@@ -112,7 +112,7 @@ The measured Vf are higher than assumed (red 2.30 V, blue 2.97 V), which is why 
   the buck can no longer hold 3.3 V, and blue then green dim first, then go out. The low-battery policy (Phase 4)
   accounts for this.
 
-## Pairing / reset button (D9)
+## On/off and pairing button (D9)
 
 A standard 4-pin tactile switch has its pins connected in two pairs inside: the two pins of a pair are always
 connected, the button connects one pair to the other. Using two **diagonally opposite** pins always goes through the
@@ -125,9 +125,10 @@ switch, whichever way the part is turned, so no need to know which pins are pair
 4. Check before power: multimeter in continuity mode between D9 and GND: **open** at rest, **closed** while pressed.
    If it beeps at rest, the two pins are on the same side of a pair, not diagonal: move one wire.
 
-What it does (`zigbee.md` §8): **short press** = pair (`zigbee join`), the lamp blinks blue while it searches, then
-green (joined) or amber (failed). **Hold**: after 3 s the lamp blinks red; let go to cancel; at **10 s** it does a
-factory reset (`zigbee reset`), shows solid red 2 s and goes off. D1 stays the recovery escape; D9 is not an escape.
+What it does (`zigbee.md` §8): **short press** = light on/off (as a Zigbee Toggle command). **Hold 5 s** = pairing
+(leaving the current network first if joined): the lamp breathes blue while it searches, then shows green (joined) or
+amber (failed). No factory reset on the button (`zigbee reset` on the console). D1 stays the recovery escape; D9 is
+not an escape.
 
 ## Battery connection
 

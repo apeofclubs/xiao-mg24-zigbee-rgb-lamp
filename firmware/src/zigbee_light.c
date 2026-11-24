@@ -270,6 +270,16 @@ void zigbee_light_factory_reset(void)
   lamp_apply(false, 254u, color_from_zcl_xy(0x616B, 0x607D), APP_ZIGBEE_FOLLOW_FADE_MS);
 }
 
+bool zigbee_light_toggle(void)
+{
+  /* The On/Off server's own path for a received Toggle command: OnOff
+   * attribute (reported if Zigbee2MQTT configured reporting), the Level
+   * Control on/off effect, the scene marked invalid. The attribute change
+   * then drives the LED and the debounced save like any Zigbee command. */
+  return sl_zigbee_af_on_off_cluster_set_value_cb(EP, ZCL_TOGGLE_COMMAND_ID, false)
+         == SL_ZIGBEE_ZCL_STATUS_SUCCESS;
+}
+
 void zigbee_light_feedback(bool active)
 {
   feedback = active;

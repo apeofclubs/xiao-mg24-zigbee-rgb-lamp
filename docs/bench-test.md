@@ -179,23 +179,30 @@ Report: the delays, direct and through the group.
 
 Report: the console output of `zigbee reset` and `lamp balance`, and whether re-pairing worked.
 
-### 3.9 Pairing / factory-reset button (D9)
-Wiring first: `wiring.md`, "Pairing / reset button" (continuity: open at rest, closed pressed). Flash the new build
-(§3.0 procedure: backup, then the `.hex`). Keep the RTT console open: every press prints a `Button: …` line.
+### 3.9 On/off and pairing button (D9)
+Wiring first: `wiring.md`, "On/off and pairing button" (continuity: open at rest, closed pressed). Flash the new
+build (§3.0 procedure: backup, then the `.hex`). Keep the RTT console open: every press prints a `Button: …` line.
 1. Boot: the console prints `Button D9: ready`. (With the button held during reset it prints `held at boot: ignored
    until released`, and the press does nothing until released.)
-2. **Short press, joined**: the LED shows green 2 s, then its previous state. Console: `Button: already joined`.
-   `zigbee status` still `joined`; Z2M still controls the lamp.
-3. **Cancelled hold**: hold about 5 s. From 3 s the LED blinks red; let go before 10 s. Console: `Button: released,
-   factory reset cancelled`. The lamp shows its previous state, `zigbee status` still `joined`.
-4. **Hold 10 s**: blinks red from 3 s, then solid red 2 s, then off. Console: `Button: held 10 s, factory reset` and
-   `Factory reset: …`. `zigbee status`: `no network`; `lamp balance` unchanged; Z2M shows the lamp leaving (or not
-   responding: *Remove* it).
-5. **Short press, not joined, permit join closed**: blue blinking, then after up to about a minute amber 2 s;
+2. **Short press, joined**: the lamp turns off (or on, with its last colour and level). Console: `Button: toggle`.
+   Z2M / HA show the new state within a few seconds (attribute report). Press again: it comes back. `zigbee status`
+   still `joined`.
+3. **Release before 5 s** (hold about 3 s): exactly the same as a short press, a toggle and nothing else: no
+   breathe, no pairing, `zigbee status` still `joined`.
+4. **Short press, not joined** (after `zigbee leave`): the lamp toggles all the same; console `Button: toggle`.
+5. **Hold 5 s, not joined, permit join closed**: at 5 s the LED starts breathing blue (let go); console
+   `Button: held 5 s, pairing started`. After up to about a minute: amber 2 s, then the previous light state;
    console `Join failed`.
-6. **Short press, permit join open** in Z2M: blue blinking, then green 2 s, console `Join done` and `Network up`;
-   the interview completes in Z2M and HA controls the lamp again.
-7. Identify from Z2M, then a short press during the blinking: green 2 s, then the Identify blinking resumes.
+6. **Hold 5 s, not joined, permit join open** in Z2M: breathes blue, then green 2 s, then the light state; console
+   `Join done` and `Network up`; the interview completes in Z2M and HA controls the lamp.
+7. **Re-pair from a joined lamp**: permit join open, hold 5 s. Console `Button: held 5 s, pairing started, leaving
+   the current network first`, `Pair: leaving the current network first`, `Pair: old network left, join searching`,
+   then `Join done`. Breathes blue throughout, then green 2 s. In Z2M the lamp leaves and comes back (new interview);
+   `lamp balance` and the light colour unchanged.
+8. **Hold 5 s while it pairs** (during the breathing of step 6 or 7): console `Button: a pairing is already running,
+   hold ignored`; the breathing and the pairing go on.
+9. Identify from Z2M, then a short press during the blinking: the blinking goes on; when Identify ends the lamp
+   shows the toggled state.
 
 Report: for each step, yes/no and anything unexpected (colour, timing), plus the console lines.
 

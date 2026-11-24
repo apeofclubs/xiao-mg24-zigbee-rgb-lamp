@@ -139,7 +139,7 @@ static void cmd_status(sl_cli_command_arg_t *args)
 static void cmd_reset(sl_cli_command_arg_t *args)
 {
   (void)args;
-  sl_status_t s = zigbee_app_factory_reset();   /* same as holding D9 for 10 s */
+  sl_status_t s = zigbee_app_factory_reset();
   printf("leave: 0x%02lX\r\n", (unsigned long)s);
   printf("factory reset done: network left, bindings, reporting, groups, scenes and "
          "last state cleared; balance kept. `zigbee join` to pair again\r\n");

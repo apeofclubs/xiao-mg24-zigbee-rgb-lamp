@@ -1,18 +1,22 @@
 /**
  * @file button.c
- * @brief Pairing / factory-reset push button on pad D9 (PA04) to GND.
+ * @brief On/off and pairing push button on pad D9 (PA04) to GND
+ *        (operator, 2026-11-24, AUR-462).
  *
- *   short press (released before APP_BUTTON_WARN_MS)
- *       not on a network: start pairing (same as `zigbee join`); the lamp
- *         blinks blue while it searches, then shows solid green for
- *         APP_BUTTON_FEEDBACK_MS when joined, or solid amber if the join failed
- *       already joined: solid green for APP_BUTTON_FEEDBACK_MS, nothing else
- *         (a short press never leaves a network: hold 10 s for that)
- *       joining, or joined with the parent lost (rejoining): ignored
- *   held APP_BUTTON_WARN_MS: the lamp blinks red; letting go before
- *       APP_BUTTON_FACTORY_RESET_MS cancels (no action, the lamp comes back)
- *   held APP_BUTTON_FACTORY_RESET_MS: factory reset (same as `zigbee reset`),
- *       then solid red for APP_BUTTON_FEEDBACK_MS, then off (factory state)
+ *   short press (released before APP_BUTTON_PAIR_MS)
+ *       toggle the light, as a ZCL On/Off Toggle command (zigbee_light_toggle()):
+ *       the OnOff attribute changes, so a joined lamp reports it, and the lamp
+ *       works the same when it is not on a network. No colour feedback. During
+ *       a pairing the attribute still toggles; the LED shows it once the
+ *       pairing indication ends.
+ *   held APP_BUTTON_PAIR_MS: pairing (zigbee_app_pair()); a joined lamp
+ *       leaves its network first. The LED breathes blue from that moment until
+ *       the join ends, then shows solid green (joined) or amber (failed) for
+ *       APP_BUTTON_FEEDBACK_MS, then the light state. Letting go is not needed
+ *       for the pairing to run; nothing more happens on release.
+ *       Hold while a pairing (button or `zigbee join`) runs: ignored, the
+ *       running pairing goes on.
+ *   No factory reset on the button: `zigbee reset` on the console.
  *
  * The edge interrupt (GPIO driver, port A works in EM2) only wakes the main
  * loop; the level is read APP_BUTTON_DEBOUNCE_MS after the last edge and the
@@ -32,15 +36,13 @@
 
 typedef enum {
   BTN_IDLE = 0,
-  BTN_PRESSED,         /* down, shorter than APP_BUTTON_WARN_MS */
-  BTN_WARNING,         /* down, red blinking, reset at APP_BUTTON_FACTORY_RESET_MS */
-  BTN_WAIT_RELEASE,    /* action done (or held at boot): ignore until released */
+  BTN_PRESSED,         /* down, shorter than APP_BUTTON_PAIR_MS */
+  BTN_WAIT_RELEASE,    /* pairing started (or held at boot): ignore until released */
 } button_state_t;
 
-static const lamp_rgb_t COLOR_JOINING = { 0u, 0u, 255u };     /* blue, blinking */
+static const lamp_rgb_t COLOR_JOINING = { 0u, 0u, 255u };     /* blue, breathing */
 static const lamp_rgb_t COLOR_OK      = { 0u, 255u, 0u };     /* green */
 static const lamp_rgb_t COLOR_FAILED  = { 255u, 96u, 0u };    /* amber */
-static const lamp_rgb_t COLOR_RESET   = { 255u, 0u, 0u };     /* red */
 
 static sl_zigbee_af_event_t edge_event;      /* ISR event: activated by the interrupt */
 static sl_zigbee_af_event_t button_event;    /* debounce and hold timing */
@@ -58,11 +60,11 @@ static bool button_down(void)
 
 /* ---- LED feedback -------------------------------------------------------- */
 
-static void show_blink(lamp_rgb_t c)
+static void show_breathe(lamp_rgb_t c)
 {
   zigbee_light_feedback(true);
   lamp_apply(true, 254u, c, 0u);
-  lamp_set_effect(LAMP_EFFECT_BLINK);
+  lamp_set_effect(LAMP_EFFECT_BREATHE);
 }
 
 static void show_solid(lamp_rgb_t c)
@@ -79,7 +81,7 @@ static void feedback_done(void)
   timed_feedback = false;
   sl_zigbee_af_event_set_inactive(&feedback_event);
   if (join_feedback) {
-    show_blink(COLOR_JOINING);
+    show_breathe(COLOR_JOINING);
   } else {
     zigbee_light_feedback(false);
   }
@@ -95,36 +97,32 @@ static void feedback_handler(sl_zigbee_af_event_t *event)
 
 static void short_press(void)
 {
-  sl_zigbee_network_status_t st = sl_zigbee_af_network_state();
-  if (st == SL_ZIGBEE_JOINED_NETWORK) {
-    sl_zigbee_app_debug_println("Button: already joined (hold 10 s to factory reset)");
-    show_solid(COLOR_OK);
-  } else if (st != SL_ZIGBEE_NO_NETWORK || zigbee_app_is_joining()) {
-    sl_zigbee_app_debug_println("Button: busy (joining or rejoining), ignored");
-    feedback_done();
-  } else {
-    sl_status_t s = zigbee_app_join();
-    sl_zigbee_app_debug_println("Button: join %s (0x%02lX)",
-                                s == SL_STATUS_OK ? "searching" : "could not start",
-                                (unsigned long)s);
-    if (s == SL_STATUS_OK) {
-      join_feedback = true;
-      timed_feedback = false;
-      sl_zigbee_af_event_set_inactive(&feedback_event);
-      show_blink(COLOR_JOINING);
-    } else {
-      show_solid(COLOR_FAILED);
-    }
-  }
+  bool ok = zigbee_light_toggle();
+  sl_zigbee_app_debug_println("Button: toggle%s", ok ? "" : " failed");
 }
 
-static void factory_reset(void)
+static void long_press(void)
 {
-  sl_zigbee_app_debug_println("Button: held %u s, factory reset",
-                              (unsigned)(APP_BUTTON_FACTORY_RESET_MS / 1000u));
-  join_feedback = false;              /* steering is stopped by the reset */
-  (void)zigbee_app_factory_reset();   /* LED off, attributes to defaults */
-  show_solid(COLOR_RESET);            /* then off: feedback_done() */
+  if (zigbee_app_is_joining()) {
+    sl_zigbee_app_debug_println("Button: a pairing is already running, hold ignored");
+    return;
+  }
+  bool was_on_network = sl_zigbee_af_network_state() != SL_ZIGBEE_NO_NETWORK;
+  /* Breathe first, so the user sees at once that the hold was taken. */
+  join_feedback = true;
+  timed_feedback = false;
+  sl_zigbee_af_event_set_inactive(&feedback_event);
+  show_breathe(COLOR_JOINING);
+  sl_status_t s = zigbee_app_pair();
+  sl_zigbee_app_debug_println("Button: held %u s, pairing %s%s (0x%02lX)",
+                              (unsigned)(APP_BUTTON_PAIR_MS / 1000u),
+                              s == SL_STATUS_OK ? "started" : "could not start",
+                              was_on_network ? ", leaving the current network first" : "",
+                              (unsigned long)s);
+  if (s != SL_STATUS_OK) {
+    join_feedback = false;
+    show_solid(COLOR_FAILED);
+  }
 }
 
 /* ---- state machine -------------------------------------------------------- */
@@ -148,28 +146,9 @@ static void button_handler(sl_zigbee_af_event_t *event)
       if (!down) {
         state = BTN_IDLE;
         short_press();
-      } else if (held >= APP_BUTTON_WARN_MS) {
-        state = BTN_WARNING;
-        sl_zigbee_app_debug_println("Button: held, factory reset in %u s unless released",
-                                    (unsigned)((APP_BUTTON_FACTORY_RESET_MS - APP_BUTTON_WARN_MS)
-                                               / 1000u));
-        timed_feedback = false;
-        sl_zigbee_af_event_set_inactive(&feedback_event);
-        show_blink(COLOR_RESET);
-        sl_zigbee_af_event_set_delay_ms(&button_event, APP_BUTTON_TICK_MS);
-      } else {
-        sl_zigbee_af_event_set_delay_ms(&button_event, APP_BUTTON_TICK_MS);
-      }
-      break;
-
-    case BTN_WARNING:
-      if (!down) {
-        state = BTN_IDLE;
-        sl_zigbee_app_debug_println("Button: released, factory reset cancelled");
-        feedback_done();
-      } else if (held >= APP_BUTTON_FACTORY_RESET_MS) {
+      } else if (held >= APP_BUTTON_PAIR_MS) {
         state = BTN_WAIT_RELEASE;
-        factory_reset();
+        long_press();
       } else {
         sl_zigbee_af_event_set_delay_ms(&button_event, APP_BUTTON_TICK_MS);
       }
@@ -228,11 +207,8 @@ void button_init(void)
 void button_join_finished(bool joined)
 {
   if (!join_feedback) {
-    return;   /* not started by the button (`zigbee join`), or reset since */
+    return;   /* not started by the button (`zigbee join`) */
   }
   join_feedback = false;
-  if (state == BTN_WARNING) {
-    return;   /* the red warning keeps the LED; feedback_done() restores it */
-  }
   show_solid(joined ? COLOR_OK : COLOR_FAILED);
 }

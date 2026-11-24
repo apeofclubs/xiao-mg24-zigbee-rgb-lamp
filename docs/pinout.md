@@ -25,7 +25,7 @@ The MCU on the schematic is `EFR32MG24B220F1536IM48-B` (U5, sheet 05 [S2]). That
 | LED green | **D2** | PC02 | TIMER0 CC1 (PWM) | Same |
 | LED blue | **D3** | PC03 | TIMER0 CC2 (PWM) | Same |
 | Recovery escape (input, pull-up) | **D1** | PC01 | GPIO | Same pad as the Arduino core's `DEEP_SLEEP_ESCAPE_PIN` [S3], so one habit works for both firmwares |
-| Pairing / factory-reset button (input, pull-up + filter, edge interrupt) | **D9** | PA04 | GPIO, EXTI | Port A keeps full GPIO function in EM2, so a press wakes the sleeping lamp (ports A/B are the safe choice for EM2 functions, energy-mode notes below and item H9); free edge pad, not a debug, flash or USB-bridge pin [S2][S3]. Wiring: `wiring.md`, "Pairing / reset button" |
+| On/off and pairing button (input, pull-up + filter, edge interrupt) | **D9** | PA04 | GPIO, EXTI | Port A keeps full GPIO function in EM2, so a press wakes the sleeping lamp (ports A/B are the safe choice for EM2 functions, energy-mode notes below and item H9); free edge pad, not a debug, flash or USB-bridge pin [S2][S3]. Wiring: `wiring.md`, "On/off and pairing button" |
 | Battery divider enable | (internal) | PD03 `VBAT_CTL` | GPIO out | Fixed by the board [S2] |
 | Battery voltage | (internal) | PD04 `VBAT_ADC` | IADC | Fixed by the board [S1][S2] |
 | USART to the SAMD11 (USB serial) | (internal, D12 / D11 pads) | PA08 / PA09 | unused from Phase 2 | The console moved to SEGGER RTT over SWD (`flashing.md` §4.1); the pins are left in their reset state |
@@ -70,7 +70,7 @@ From [S1] (pin map), cross-checked against the schematic net names [S2] and the 
 | D6 | PC06 | `PC06/A6/D6/TX` | none (Serial1 TX in Arduino) | free |
 | D7 | PC07 | `PC07/A7/D7/RX` | none (Serial1 RX in Arduino) | free |
 | D8 | PA03 | `PA03/A8/D8/SCLK` | none | free; see note on PA03 |
-| D9 | PA04 | `PA04/A9/D9/MISO` | none | **Pairing / factory-reset button** to GND (port A: wakes the chip from EM2), `zigbee.md` §8 |
+| D9 | PA04 | `PA04/A9/D9/MISO` | none | **On/off and pairing button** to GND (port A: wakes the chip from EM2), `zigbee.md` §8 |
 | D10 | PA05 | `PA05/A10/D10/MOSI` | none | free |
 | 3V3 | – | `+3V3` | output of buck U2 (TPS628438) | LED common anode (if anode variant) |
 | GND | – | `GND` | | LED common cathode **and** button (same pad, or one junction); never BAT− |

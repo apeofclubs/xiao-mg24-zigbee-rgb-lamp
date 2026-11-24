@@ -17,6 +17,11 @@ void zigbee_light_init(void);
  *  last state erased from NVM3 (the balance is kept), LED off. */
 void zigbee_light_factory_reset(void);
 
+/** Toggle the light exactly as a ZCL On/Off Toggle command received on
+ *  endpoint 1 would (button short press). Works joined or not. Turning on
+ *  restores the colour and level held in the attributes. */
+bool zigbee_light_toggle(void);
+
 /** true: the button feedback (button.c) drives the LED; Zigbee changes still
  *  update the attributes and the saved state but are not shown. false: the
  *  LED goes back to Identify or to the attribute state. Never saved. */

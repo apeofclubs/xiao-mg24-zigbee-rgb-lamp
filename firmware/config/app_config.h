@@ -114,23 +114,30 @@
 #define APP_ESCAPE_PIN               1
 
 /* ---------------------------------------------------------------------------
- * Pairing / factory-reset button (operator, 2026-11-24, AUR-459)
+ * On/off and pairing button (operator, 2026-11-24, AUR-462; replaces AUR-459)
  * Push button between pad D9 (PA04, schematic net PA04/A9/D9/MISO) and GND,
  * internal pull-up with the input glitch filter, no external part. Port A
  * keeps its GPIO interrupts in EM2, so a press wakes the sleeping lamp.
  * PA04 is not a debug, flash or USB-bridge pin (docs/pinout.md).
- *   short press (released before APP_BUTTON_WARN_MS): pair (= `zigbee join`)
- *   held APP_BUTTON_WARN_MS: the lamp blinks red, let go to cancel
- *   held APP_BUTTON_FACTORY_RESET_MS: factory reset (= `zigbee reset`)
+ *   short press (released before APP_BUTTON_PAIR_MS): toggle the light, as a
+ *       ZCL On/Off Toggle command
+ *   held APP_BUTTON_PAIR_MS: pairing (leaves the current network first if
+ *       joined); the LED breathes until the join ends
+ * No factory reset on the button: `zigbee reset` on the console.
  * A button already held at boot is ignored until it is released.
  * ------------------------------------------------------------------------- */
 #define APP_BUTTON_PORT              gpioPortA   /* pad D9 */
 #define APP_BUTTON_PIN               4
 #define APP_BUTTON_DEBOUNCE_MS       30u     /* level read this long after the last edge */
 #define APP_BUTTON_TICK_MS           100u    /* hold timing while pressed */
-#define APP_BUTTON_WARN_MS           3000u   /* red blinking starts; shorter = short press */
-#define APP_BUTTON_FACTORY_RESET_MS  10000u
-#define APP_BUTTON_FEEDBACK_MS       2000u   /* solid colour after an action */
+#define APP_BUTTON_PAIR_MS           5000u   /* hold this long to pair; shorter = toggle */
+#define APP_BUTTON_FEEDBACK_MS       2000u   /* green / amber after a pairing */
+
+/* Re-pairing a joined lamp: the leave is asynchronous; steering starts once
+ * the stack reports no network, checked every APP_PAIR_LEAVE_POLL_MS, and
+ * the pairing fails if that takes longer than APP_PAIR_LEAVE_TIMEOUT_MS. */
+#define APP_PAIR_LEAVE_POLL_MS       200u
+#define APP_PAIR_LEAVE_TIMEOUT_MS    10000u
 
 /* ---------------------------------------------------------------------------
  * Battery measurement (Phase 4). Schematic nets PD03/VBAT_CTL and
