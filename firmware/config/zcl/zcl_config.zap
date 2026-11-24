@@ -293,7 +293,7 @@
               "storageOption": "RAM",
               "singleton": 1,
               "bounded": 0,
-              "defaultValue": "0.3.0-phase3",
+              "defaultValue": "0.3.1-phase3",
               "reportable": 0,
               "minInterval": 1,
               "maxInterval": 65534,

@@ -18,7 +18,7 @@
 #define APP_MANUFACTURER_NAME        "OpenSource"
 #define APP_MODEL_IDENTIFIER         "XIAO-MG24-RGB-LiPo"
 #define APP_ENDPOINT                 1
-#define APP_FIRMWARE_VERSION_STRING  "0.3.0-phase3"   /* also Basic SWBuildID in the .zap */
+#define APP_FIRMWARE_VERSION_STRING  "0.3.1-phase3"   /* also Basic SWBuildID in the .zap */
 
 /* ---------------------------------------------------------------------------
  * RGB LED (conventional 4-pin LED, one resistor per channel)
@@ -99,6 +99,13 @@
  * ------------------------------------------------------------------------- */
 #define APP_CONSOLE_KEEP_AWAKE       1
 #define APP_CONSOLE_POLL_MS          50u
+
+/* ---------------------------------------------------------------------------
+ * Fault recorder (src/fault.c): after printing a crash on RTT, wait this long
+ * before the stack's handler resets, so the probe can read the lines. Also a
+ * delay between resets if a fault ever repeats at start-up.
+ * ------------------------------------------------------------------------- */
+#define APP_FAULT_PRINT_DELAY_MS     500u
 
 /* ---------------------------------------------------------------------------
  * Recovery: boot window and escape pin (docs/flashing.md, safe-flashing rules)

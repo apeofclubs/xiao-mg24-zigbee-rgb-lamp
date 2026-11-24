@@ -92,13 +92,16 @@ static void timer_start(void)
   running = true;
 }
 
+/* Stops the counter only. The TIMER0 clock stays enabled and the timer is not
+ * reset (AUR-464): after a stop no code touches TIMER0 until timer_start(),
+ * which re-initialises it; an access to a peripheral whose clock is off is a
+ * BusFault on Series 2. The clock costs nothing in EM2 (high-frequency
+ * peripheral clocks stop there). */
 static void timer_stop(void)
 {
   GPIO->TIMERROUTE[LED_TIMER_IDX].ROUTEEN = 0;
   pins_to_off_level();
   TIMER_Enable(LED_TIMER, false);
-  TIMER_Reset(LED_TIMER);
-  CMU_ClockEnable(cmuClock_TIMER0, false);
   for (uint8_t i = 0; i < RGB_LED_CHANNELS; i++) {
     duty_counts[i] = 0;
   }

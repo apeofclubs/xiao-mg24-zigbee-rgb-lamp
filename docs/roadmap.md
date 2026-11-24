@@ -46,7 +46,7 @@ off fully.
   (`src/zigbee_light.c`, conversions in `src/color.c`).
 * Pairing on demand only, from the console: `zigbee join | leave | status | reset | rfswitch` (`src/zigbee_cli.c`),
   or the **D9 button** (AUR-459, reworked by AUR-462; `src/button.c`, `zigbee.md` §8): short press = light on/off
-  (ZCL Toggle path), hold 5 s = pairing with a blue breathe (a joined lamp leaves and pairs again); no factory reset
+  (OnOff attribute written directly, AUR-464), hold 5 s = pairing with a blue breathe (a joined lamp leaves and pairs again); no factory reset
   on the button. Battery plugged permanently through a JST pigtail on BAT+/BAT− (`wiring.md`).
 * Factory reset (`zigbee reset`): leave, bindings, reporting, groups, scenes, attributes, saved last state; the
   balance (`0x0A100`) is kept. No flash erase.
@@ -58,6 +58,9 @@ off fully.
   `zigbee2mqtt/xiao_mg24_rgb_lamp.mjs`. Docs: `zigbee.md`, `bench-test.md` §3; measured LED currents in `wiring.md`.
 
 Status: **compiled** (AUR-437; button and JST wiring: AUR-459; button rework: AUR-462, compiled).
+AUR-464 (`0.3.1-phase3`, compiled): turning off no longer goes through the SDK's command-only Level Control path
+(the button's bus fault); PWM stop no longer gates TIMER0; a fault recorder prints PC/LR/CFSR/BFAR on RTT
+(`src/fault.c`, `bench-test.md` §3.9b).
 
 **Needs from you before Phase 4:** the Z2M "About" / "Exposes" tabs for the lamp (screenshot or text); ON/OFF,
 brightness and colour working from HA (yes/no each, with the delay you notice); behaviour after a lamp reset and a

@@ -1,6 +1,6 @@
 # Zigbee: pairing, reset, Zigbee2MQTT and Home Assistant
 
-Phase 3 firmware (`0.3.0-phase3`). Validation level of everything below: **compiled**. It becomes
+Phase 3 firmware (`0.3.1-phase3`). Validation level of everything below: **compiled**. It becomes
 *verified in Zigbee2MQTT* only with your test (`bench-test.md` §3).
 
 **Tested target: not yet tested.** The converter and this page were checked (by reading the published packages, and
@@ -22,7 +22,7 @@ on 2026-11-24:
 |---|---|
 | Device type | Zigbee 3.0 **sleepy end device** (it never routes) |
 | Endpoint 1 | **Extended Color Light** (`0x010D`), profile Home Automation (`0x0104`) |
-| Manufacturer / model | `OpenSource` / `XIAO-MG24-RGB-LiPo` (Basic cluster), SW build id `0.3.0-phase3` |
+| Manufacturer / model | `OpenSource` / `XIAO-MG24-RGB-LiPo` (Basic cluster), SW build id `0.3.1-phase3` |
 | Server clusters | Basic, Identify, Groups, Scenes, On/Off, Level Control, Color Control |
 | On/Off | On, Off, Toggle; `StartUpOnOff` (power-on behaviour) |
 | Level Control | 1–254, with transition time and the "with on/off" commands; `OnLevel`, `OnOffTransitionTime`, `StartUpCurrentLevel` |
@@ -186,7 +186,7 @@ Behaviour asked by the operator on 2026-11-24 (AUR-462, replaces AUR-459's). The
 
 | Action | Lamp state | What happens | LED |
 |---|---|---|---|
-| **Short press** (released before 5 s) | any | **On/off toggle**, exactly as a ZCL On/Off *Toggle* command received by the lamp: the `OnOff` attribute changes (reported to Z2M / HA when joined and reporting is configured), the Level Control on/off effect runs, the debounced save stores it. Works the same when not on a network | Turns on with the last colour and level, or off. No colour feedback |
+| **Short press** (released before 5 s) | any | **On/off toggle**, like a ZCL On/Off *Toggle* command received by the lamp: the `OnOff` attribute changes (reported to Z2M / HA when joined and reporting is configured), `OnLevel` is applied when turning on, the scene is marked invalid, the debounced save stores it. It does not call the SDK's On/Off / Level Control command path, which needs a received command and crashed with a bus fault outside one (AUR-464). Works the same when not on a network | Turns on with the last colour and level, or off. No colour feedback |
 | **Hold 5 s** | no network | **Pairing**, exactly as `zigbee join` | **Breathes blue** from the moment 5 s is reached (let go: the pairing goes on) until the join ends (10–60 s), then **green** 2 s (joined) or **amber** 2 s (failed: open permit join and hold again), then the light state |
 | Hold 5 s | joined, or joined with its parent lost | **Leaves the current network, then pairs** (this is how to move the lamp to another network). See the list below for what is cleared | Same: breathes blue during the leave and the search, then green / amber 2 s |
 | Hold 5 s | a pairing already runs (button or `zigbee join`) | **Ignored**: the running pairing goes on (it is not cancelled) | Unchanged |

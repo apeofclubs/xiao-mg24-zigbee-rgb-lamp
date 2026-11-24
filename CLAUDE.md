@@ -17,6 +17,7 @@ firmware/
   src/zigbee_light.[ch]            endpoint 1 light: attributes -> lamp, Identify, last state (NVM3, debounced)
   src/zigbee_cli.[ch]              `zigbee join|leave|status|reset|rfswitch` console commands
   src/button.[ch]                  D9 button: short press = on/off, hold 5 s = pairing (breathe)
+  src/fault.[ch]                   fault recorder: PC/LR/CFSR/BFAR on RTT before the reset and at the next boot
   src/color.[ch]                   HSV, CIE xy, colour temperature -> RGB
   src/rgb_led.[ch]                 TIMER0 PWM on the LED pins, EM1 while lit
   src/lamp.[ch]                    colour, gamma, balance (NVM3), fades, effects
@@ -53,7 +54,7 @@ scripts/check_image.py     # fails if the .hex writes outside 0x08006000-0x08175
 
 `check_image.py` (Python standard library only) enforces the promise in `docs/flashing.md`: the image never touches
 the bootloader (`0x08000000-0x08005FFF`), NVM3 (`0x08176000-0x0817DFFF`) or the end of flash. It prints the image's
-segments; the current (Phase 3 + button) build gives `0x08006000-0x0800627C` and `0x08006280-0x0804909C` (end exclusive),
+segments; the current (Phase 3 + button + fault recorder) build gives `0x08006000-0x0800627C` and `0x08006280-0x0804959C` (end exclusive),
 about 1.18 MB below NVM3. Run it after every build and
 before handing an image to the operator.
 

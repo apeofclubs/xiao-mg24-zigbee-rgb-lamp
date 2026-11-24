@@ -272,12 +272,35 @@ void zigbee_light_factory_reset(void)
 
 bool zigbee_light_toggle(void)
 {
-  /* The On/Off server's own path for a received Toggle command: OnOff
-   * attribute (reported if Zigbee2MQTT configured reporting), the Level
-   * Control on/off effect, the scene marked invalid. The attribute change
-   * then drives the LED and the debounced save like any Zigbee command. */
-  return sl_zigbee_af_on_off_cluster_set_value_cb(EP, ZCL_TOGGLE_COMMAND_ID, false)
-         == SL_ZIGBEE_ZCL_STATUS_SUCCESS;
+  /* Not sl_zigbee_af_on_off_cluster_set_value_cb(): outside a received
+   * command it crashes. It calls the Level Control on/off effect, whose
+   * moveToLevelHandler() (SDK level-control.c:565 and :685) reads the
+   * endpoint and the cluster from sl_zigbee_af_current_command(), which is
+   * NULL outside a received command: a read near address 0, unmapped on the
+   * MG24 (flash starts at 0x08000000), so a BusFault (AUR-464).
+   *
+   * Same result without that path: OnOff written (reported if Zigbee2MQTT
+   * configured reporting), the scene marked invalid. The Level Control effect
+   * ends where it started for Off (CurrentLevel back to its stored value) and
+   * at OnLevel for On, so only OnLevel is applied here; the LED fade comes
+   * from lamp.c. The attribute change then drives the LED and the debounced
+   * save like any Zigbee command. */
+  uint8_t on = read_u8(ZCL_ON_OFF_CLUSTER_ID, ZCL_ON_OFF_ATTRIBUTE_ID, 0) ? 0u : 1u;
+  if (on != 0u) {
+    uint8_t on_level = read_u8(ZCL_LEVEL_CONTROL_CLUSTER_ID, ZCL_ON_LEVEL_ATTRIBUTE_ID, 0xFF);
+    if (on_level >= 1u && on_level <= 254u) {
+      write_u8(ZCL_LEVEL_CONTROL_CLUSTER_ID, ZCL_CURRENT_LEVEL_ATTRIBUTE_ID,
+               on_level, ZCL_INT8U_ATTRIBUTE_TYPE);
+    }
+  }
+  bool ok = sl_zigbee_af_write_server_attribute(EP, ZCL_ON_OFF_CLUSTER_ID,
+                                                ZCL_ON_OFF_ATTRIBUTE_ID, &on,
+                                                ZCL_BOOLEAN_ATTRIBUTE_TYPE)
+            == SL_ZIGBEE_ZCL_STATUS_SUCCESS;
+  if (ok) {
+    (void)sl_zigbee_af_scenes_cluster_make_invalid_cb(EP);
+  }
+  return ok;
 }
 
 void zigbee_light_feedback(bool active)

@@ -137,6 +137,7 @@ source:
   - path: src/zigbee_light.c
   - path: src/zigbee_cli.c
   - path: src/button.c
+  - path: src/fault.c
 
 include:
   - path: config
@@ -155,6 +156,7 @@ include:
       - path: zigbee_light.h
       - path: zigbee_cli.h
       - path: button.h
+      - path: fault.h
 
 config_file:
   - path: config/zcl/zcl_config.zap

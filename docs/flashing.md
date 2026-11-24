@@ -137,7 +137,7 @@ Target **`. Do not add `erase` or any `mass_erase` / `flash erase_address` comma
    (or what the start-up attributes ask for, `zigbee.md` §4).
 2. Open the console over RTT (§4.1). Type `help` + Enter: the `rgb_lamp>` prompt answers; `lamp status` prints the
    lamp's state and `zigbee status` the network state. The bench tests are in `docs/bench-test.md` §3.
-3. The boot messages (`OpenSource XIAO-MG24-RGB-LiPo 0.3.0-phase3 …`, `Recovery: awake for 10000 ms after reset`) are
+3. The boot messages (`OpenSource XIAO-MG24-RGB-LiPo 0.3.1-phase3 …`, `Recovery: awake for 10000 ms after reset`) are
    printed before OpenOCD attaches, so you usually will not see them. They are not needed.
 4. The device does **not** join Zigbee on its own: `zigbee join` after opening permit-join in Zigbee2MQTT
    (`zigbee.md` §2). Once joined, it rejoins the same network by itself after a reset.

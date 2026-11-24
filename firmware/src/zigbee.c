@@ -22,6 +22,7 @@
 #include "zigbee_light.h"
 #include "zigbee_cli.h"
 #include "button.h"
+#include "fault.h"
 
 static uint8_t last_lqi;
 static int8_t last_rssi;
@@ -36,6 +37,7 @@ static void pair_handler(sl_zigbee_af_event_t *event);
 
 void sl_zigbee_af_main_init_cb(void)
 {
+  fault_init();           // crash details on RTT from here on
   power_manager_init();   // first: boot window and escape pin
   sl_zigbee_af_event_init(&pair_event, pair_handler);
   storage_init();
@@ -55,6 +57,7 @@ void sl_zigbee_af_main_init_cb(void)
                               (unsigned)APP_BOOT_AWAKE_WINDOW_MS,
                               power_manager_escape_active()
                               ? ", escape pin LOW: sleep disabled until reset" : "");
+  fault_report();          // the last crash, if the last reset was one
   sl_zigbee_app_debug_println("Not joining on its own: `zigbee join` or holding D9 for 5 s pairs, "
                               "`zigbee status` shows the network");
 }

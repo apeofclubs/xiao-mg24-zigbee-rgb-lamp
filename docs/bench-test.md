@@ -96,7 +96,7 @@ Report: the balance after the reset.
 
 ## 3. Phase 3: Zigbee light
 
-Goal: the roadmap's Phase 3 gate ("Needs from you before Phase 4"). Firmware `0.3.0-phase3`, bench build: USB power
+Goal: the roadmap's Phase 3 gate ("Needs from you before Phase 4"). Firmware `0.3.1-phase3`, bench build: USB power
 only, battery disconnected (it never sleeps, so the console always answers). Commands and background: `zigbee.md`.
 
 ### 3.0 Flash
@@ -205,6 +205,30 @@ build (§3.0 procedure: backup, then the `.hex`). Keep the RTT console open: eve
    shows the toggled state.
 
 Report: for each step, yes/no and anything unexpected (colour, timing), plus the console lines.
+
+### 3.9b Turning off does not crash (AUR-464, firmware `0.3.1-phase3`)
+Before `0.3.1`, turning the lamp off (HA or a short press) crashed it (`Reset info: 0x0A (FLT)`,
+`Extended Reset info: 0x0A03 (BUS)`) and it came back on. Flash `0.3.1` (§3.0: backup first), RTT console open.
+1. Boot: no `Last reset was a …` line (unless the last reset was a crash).
+2. **Off from HA** (lamp on): the LED fades out, Z2M / HA show `OFF`; the console shows the `RX … clus 0x0006 …
+   cmd 00` line and **no** reboot banner. Wait 30 s: still off, no reboot.
+3. **Short press on D9** (lamp on): off, console `Button: toggle`, no reboot banner. Press again: on, with the same
+   colour and level as before; Z2M / HA show `ON` and the same brightness.
+4. **Off from HA, then press D9**, then **press D9, then on from HA**: no reboot, Z2M / HA follow the state.
+5. **Power cycle after off**: turn off, wait **10 s** (the state is saved 5 s after the last change), unplug USB
+   (and battery) for 5 s, plug back: the lamp **stays off**, console `Last state restored: off, …`.
+6. Same with on: turn on, wait 10 s, power cycle: it comes back on with its colour.
+
+**If it still crashes**: the console prints, before the reset,
+```
+FAULT: BusFault
+FAULT: PC=0x0801xxxx LR=0x0801xxxx xPSR=0x… SP=0x2000xxxx
+FAULT: CFSR=0x… HFSR=0x… BFAR=0x… (valid) MMFAR=0x… (not valid) EXC_RETURN=0x…
+FAULT: resetting (the stack's handler records it as FLT)
+```
+and, after the reset banner, the same lines as `Last reset was a BusFault` plus `FAULT: call chain: 0x… 0x…`.
+Copy all of them (and the firmware version line) into the ticket: PC, LR and the call chain give the function and
+line in the `.out` (`arm-none-eabi-addr2line -f -e xiao_mg24_rgb_lamp.out 0x…`, done on our side).
 
 ### 3.10 Battery through the JST connector
 Battery measurement (voltage in Z2M) is Phase 4; this is only the connection.
