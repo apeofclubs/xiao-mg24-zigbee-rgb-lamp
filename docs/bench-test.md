@@ -113,8 +113,8 @@ Blue is the weakest channel (3.3 mA at 100 %): set blue to 100 % and lower the o
 `lamp white`, then `lamp balance 60 70 100` and adjust by eye. Report the final `lamp balance`.
 
 ### 3.2 Pair and check Zigbee2MQTT
-1. Note your **Zigbee2MQTT version** (Settings → About) and your **coordinator model**; say whether mains-powered
-   Zigbee routers are near the lamp (H13), and which board you have (XIAO MG24 or MG24 Sense, H12).
+1. Your Zigbee2MQTT 2.14.3 / converters 26.125.0 / EmberZNet 7.4.4 install is already noted (`zigbee.md`, top);
+   tell me only if it changed. Say whether mains-powered Zigbee routers are near the lamp (H13).
 2. If you can, pair once **without** the converter first: permit join in Z2M, `zigbee join` on the console, wait for
    `Join done` and the end of the interview, then copy the Z2M **About** and **Exposes** tabs (screenshot or text).
 3. Install the converter (`zigbee.md` §6), restart Z2M, *Reconfigure* the lamp (or skip step 2 and pair now with the
@@ -179,7 +179,7 @@ Report: the delays, direct and through the group.
 Report: the console output of `zigbee reset` and `lamp balance`, and whether re-pairing worked.
 
 ### What to send back (Phase 4 gate)
-1. §3.0 checks, Z2M version, coordinator, routers, board variant (H12, H13).
+1. §3.0 checks, routers near the lamp (H13), and your Z2M versions only if they changed.
 2. Final `lamp balance` (§3.1).
 3. About/Exposes without and with the converter (§3.2).
 4. ON/OFF, brightness, colour, colour temperature, identify from HA: yes/no + delay (§3.3).

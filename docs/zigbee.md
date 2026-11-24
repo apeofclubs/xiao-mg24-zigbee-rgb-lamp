@@ -1,8 +1,19 @@
 # Zigbee: pairing, reset, Zigbee2MQTT and Home Assistant
 
-Phase 3 firmware (`0.3.0-phase3`). Written against **Zigbee2MQTT 2.x** (your Z2M version is not known yet: if it is
-1.x, tell me, the converter syntax differs). Validation level of everything below: **compiled**. It becomes
+Phase 3 firmware (`0.3.0-phase3`). Validation level of everything below: **compiled**. It becomes
 *verified in Zigbee2MQTT* only with your test (`bench-test.md` §3).
+
+**Tested target: not yet tested.** The converter and this page were checked (by reading the published packages, and
+by loading the converter with zigbee-herdsman-converters 26.125.0 outside Zigbee2MQTT) against your install, as shown
+on 2026-11-24:
+
+| | Version |
+|---|---|
+| Zigbee2MQTT | **2.14.3** (frontend 2.15.1), Home Assistant OS add-on, MQTT broker `core-mosquitto` |
+| zigbee-herdsman-converters | **26.125.0** |
+| zigbee-herdsman | 11.2.0 (adapter `ember`) |
+| Node.js | v24.22.1 |
+| Coordinator firmware | Silicon Labs **EmberZNet 7.4.4 [GA]** |
 
 ## 1. What the lamp is on the network
 
@@ -38,6 +49,15 @@ The lamp **never joins on its own**. Pairing is a console command (RTT console, 
 4. In Z2M the lamp appears, the interview runs (a few seconds to a minute for a sleepy device) and ends with
    "Successfully interviewed". Close permit join.
 5. `zigbee status` shows the network, the parent and the parent's link quality (§7).
+
+**With your EmberZNet 7.4.4 coordinator (`ember` adapter):** nothing to configure. The lamp joins as a standard
+Zigbee 3.0 device: while permit join is open the coordinator accepts joins with the well-known preconfigured link
+key (`ZigBeeAlliance09`), then the lamp asks the trust center for its own unique link key (the SDK's
+`zigbee_update_tc_link_key` component); zigbee-herdsman 11.2.0 sets the coordinator to answer these requests
+(`TC_KEY_REQUEST_POLICY = ALLOW_TC_KEY_REQUESTS_AND_SEND_CURRENT_KEY`). No install code is needed. If the lamp's
+parent should be a router, use "Permit join" on that router (or *All*); the lamp only joins where permit join is open.
+A failed key exchange shows as `Join failed` on the console and nothing in Z2M: then close and reopen permit join,
+`zigbee reset`, `zigbee join` again, and send me the Z2M log of that minute (log level *debug*).
 
 After a reset or a power cut, a joined lamp **rejoins the same network by itself** (its network keys are in NVM3):
 no new pairing. If its parent disappears (coordinator restart, router unplugged), it tries to rejoin every 10 s until
@@ -112,13 +132,24 @@ documented anywhere I could read (`feasibility.md` §6), which is why you compar
 File: `zigbee2mqtt/xiao_mg24_rgb_lamp.mjs` (modern extends: `light` with xy + hs colour and colour temperature,
 `identify`).
 
-**Install (Zigbee2MQTT 2.x):**
+Checked against your versions (zigbee-herdsman-converters 26.125.0, Zigbee2MQTT 2.14.3): loaded with that converter
+library, it exposes on/off, brightness, `color_temp` and `color_temp_startup` 153–500, colour xy and hue/saturation,
+`level_config` (`on_off_transition_time`, `execute_if_off`, `on_level`, `current_level_startup`: the attributes the
+lamp has), `power_on_behavior` (off/on/toggle/previous) and `identify` (marked as a sleepy device), no effect, no OTA.
+
+**Install (Zigbee2MQTT 2.x, checked in 2.14.3):**
 1. Copy `xiao_mg24_rgb_lamp.mjs` into the folder `external_converters` inside the Zigbee2MQTT data folder (the folder
    that holds Z2M's `configuration.yaml`; create `external_converters` if it does not exist). With the Home
    Assistant add-on that data folder is usually `/config/zigbee2mqtt` or `/addon_configs/45df7312_zigbee2mqtt`.
-   Nothing to add to `configuration.yaml`: Z2M 2.x loads every file in that folder.
-2. Restart Zigbee2MQTT. The log shows a line saying the external converter was loaded.
+   Nothing to add to `configuration.yaml`: Z2M 2.x loads every `.mjs`, `.js` or `.cjs` file in that folder. The file
+   is an ES module (`export default`), which is what the `.mjs` extension tells Node.js. Z2M itself creates a
+   `node_modules` link in that folder (so the `import` works from outside its install folder): leave it.
+2. **Restart Zigbee2MQTT** (the folder is read only at start). The log shows
+   `Loaded external converter 'xiao_mg24_rgb_lamp.mjs'.`, followed by Z2M's standard warning that external converters
+   are meant for testing. If the file is invalid, the log says `Invalid external converter ... was ignored` and Z2M
+   renames it to `xiao_mg24_rgb_lamp.mjs.invalid`: send me that log line.
 3. If the lamp was paired before the converter: on its Z2M page, click **Reconfigure** (or remove and pair again).
+   The bench build polls every 250 ms (§7), so Reconfigure reaches it at any time.
 
 **Without the converter:** Z2M 2.x builds an automatic ("generated") definition from the clusters it finds during
 the interview. For this lamp it should give on/off, brightness, colour and colour temperature, and the lamp should

@@ -1,5 +1,7 @@
 // Zigbee2MQTT external converter: XIAO MG24 RGB battery lamp (OpenSource / XIAO-MG24-RGB-LiPo).
 // Written for Zigbee2MQTT 2.x (modern extends). Installation: docs/zigbee.md section 6.
+// Checked (read-only, not run) against zigbee-herdsman-converters 26.125.0 / Zigbee2MQTT 2.14.3: every option below
+// exists in that version (dist/lib/modernExtend.d.ts LightArgs, IdentifyArgs; dist/lib/types.d.ts Definition.ota).
 //
 // What the firmware implements (firmware/config/zcl/zcl_config.zap, endpoint 1, Extended Color Light 0x010D):
 //   On/Off with StartUpOnOff, Level Control (1..254, OnLevel, OnOffTransitionTime, StartUpCurrentLevel),
@@ -21,11 +23,16 @@ export default {
             powerOnBehavior: true,
             // Identify TriggerEffect (blink, breathe, okay...) is not implemented: no "effect" expose.
             effect: false,
-            // OnLevel, OnOffTransitionTime and StartUpCurrentLevel are implemented and saved.
-            levelConfig: {},
+            // OnLevel, OnOffTransitionTime, StartUpCurrentLevel and Options (execute_if_off) exist on the lamp.
+            // OnTransitionTime (0x0012) and OffTransitionTime (0x0013) do not: list the features explicitly,
+            // because levelConfig: {} would expose all six and the lamp would refuse two of them.
+            levelConfig: {features: ['on_off_transition_time', 'on_level', 'current_level_startup', 'execute_if_off']},
+            // colorTemp.startup defaults to true: exposes color_temp_startup (StartUpColorTemperatureMireds,
+            // implemented and saved by the firmware).
             configureReporting: true,
         }),
-        m.identify(),
+        // Sleepy end device: Z2M tells the user an identify may wait until the lamp's next poll.
+        m.identify({isSleepy: true}),
     ],
     ota: false,
 };
