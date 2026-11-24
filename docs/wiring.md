@@ -1,5 +1,7 @@
 # Wiring
 
+> Final soldered build in the base (perfboard layout, assembly order, checks): `assembly.md`.
+>
 > Read `hardware-assumptions.md` before soldering. LED polarity (H3), the cell's protection circuit (H1), its
 > charge-current rating (H2) and the battery connector polarity (H8) must be confirmed first.
 
@@ -192,9 +194,10 @@ charging path.
 
 **Option 1 (preferred): direct access to the XIAO's connector.**
 Mount the XIAO so its USB-C receptacle faces a hole in the base of the lamp. The board is about 21 × 17.8 mm [S1].
-Standing upright with the connector pointing down, it needs about 21 mm of height plus the plug's clearance under the
-base. That is at the limit of the 20 mm available (item H11). Alternative: lay the board flat on the base near the
-edge, with the connector facing outwards through a slot in the side wall, close to the bottom.
+Standing upright with the connector pointing down, it is 21 mm tall: 1.5 mm above the rim of the measured base
+(inner Ø 36.5 × 19.5 mm, item H11). That is the placement chosen for the final build, with the plug inserted from
+underneath through a window in the floor: see `assembly.md` (comparison with tilted and flat, clearances, perfboard
+layout and assembly procedure).
 
 **Option 2: a short internal USB-C extension.**
 Use a **complete** USB-C extension (male plug into the XIAO, female panel-mount socket in the base), with all wires
