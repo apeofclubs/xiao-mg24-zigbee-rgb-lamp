@@ -14,6 +14,7 @@ on 2026-11-24:
 | zigbee-herdsman | 11.2.0 (adapter `ember`) |
 | Node.js | v24.22.1 |
 | Coordinator firmware | Silicon Labs **EmberZNet 7.4.4 [GA]** |
+| Lamp's expected parent (H13) | a mains-powered Zigbee lamp next to the device, probably a router: confirm in Z2M's **Map** tab after pairing (`bench-test.md` §3.2) |
 
 ## 1. What the lamp is on the network
 

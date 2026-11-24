@@ -14,7 +14,8 @@ Status: **compiled**.
 
 **Needs from you before Phase 2:**
 1. H1, H2, H3, H8 answered (cell protection, charge current, LED polarity and Vf, battery polarity).
-2. H12, H13 (board variant, Zigbee parent).
+2. H12, H13 (board variant, Zigbee parent). H12 confirmed 2026-11-23; H13 partly answered 2026-11-24 (a Zigbee lamp
+   next to the device, parent to confirm in the Z2M map at test time).
 3. Optional but useful: the backup from `flashing.md` §2 and the H7 check, then the Phase 1 flash and the console
    banner (§4). This proves the flashing path before any real feature depends on it.
 
