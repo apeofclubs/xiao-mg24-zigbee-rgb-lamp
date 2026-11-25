@@ -1,0 +1,9 @@
+# Generated project and build output (never committed: see CLAUDE.md)
+/build/
+*.s37
+*.hex
+*.bin
+*.out
+*.map
+# Flash backups taken before flashing (docs/flashing.md)
+xiao_mg24_backup_*.bin

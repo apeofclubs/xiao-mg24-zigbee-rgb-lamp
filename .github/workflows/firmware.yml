@@ -1,0 +1,135 @@
+# Build the XIAO MG24 RGB lamp firmware with the pinned tools and refuse any image that would write the bootloader,
+# NVM3 or the end of flash (scripts/check_image.py, docs/flashing.md). No secrets, no release, no flashing.
+name: firmware
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firmware-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned versions (CLAUDE.md § Pinned versions). Change a version only together with its checksum.
+  #
+  # Simplicity SDK 2026.6.1: Silicon Labs' public Conan remote, exact recipe and package revisions.
+  SDK_URL: https://conan.silabs.net/v2/conans/simplicity-sdk/2026.6.1/silabs/_/revisions/d9ee23507b533e2ea0bfd6da5235d1e4/packages/37a2d003b46c3effeb0f39742b209fe6076594ef/revisions/8969a3704c69b9796ccc5fd9b6851755/files/conan_package.tgz
+  SDK_SHA256: b166623d6bf38e039b33a698fe3390278723b1338bc270f6c5704bce0bdb6d04
+  # Arm GNU Toolchain 14.2.Rel1 (checksum published by Arm in the .sha256asc next to the archive).
+  GCC_URL: https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi.tar.xz
+  GCC_SHA256: 62a63b981fe391a9cbad7ef51b17e49aeaa3e7b0d029b36ca1e9c3b2a9b78823
+  # ZAP 2026.06.17, run by slc to generate the ZCL code (digest published by GitHub for the release asset).
+  ZAP_URL: https://github.com/project-chip/zap/releases/download/v2026.06.17/zap-linux-x64.zip
+  ZAP_SHA256: 45537226973fb892894f7110288dd4a7db627728af8cd9fc7c27b658530e2b88
+  # slc-cli 6.0.23 is only distributed through Silicon Labs' SLT installer (no direct download since slc-cli 6).
+  # SLT is pinned here; the packages it installs are checked below against the archives of a known-good install.
+  SLT_URL: https://www.silabs.com/documents/public/software/slt-cli-1.2.2-linux-x64.zip
+  SLT_SHA256: b0757c79d5dd03f41ff3b2bf2074d918e5e4d5c56835506a2887d5b4275384dc # slt-cli-1.2.2-linux-x64.zip, 2026-11-23
+  SLC_CLI_SHA256: 15d0269cb3083f0c621857e18ae4039a74603e8e0e655e037d84b9ae8a6e6821 # slc-cli-v6.0.23.zip
+  JAVA_SHA256: 5382fa98bcc66fc3aef48792a3e84328eca16afa9bf97517527e92812516ee50 # java21-v21.0.6.zip
+  PYTHON_SHA256: 26f56b1cfa05b2b3b7dafb2c2a5e3c19498389c34dfe68be800f71f476c86363 # python-v3.10.3.zip
+  TOOLS: /home/runner/mg24-tools
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Restore pinned tools
+        id: tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ env.TOOLS }}
+            ~/.silabs
+          key: mg24-tools-${{ runner.os }}-${{ env.SDK_SHA256 }}-${{ env.GCC_SHA256 }}-${{ env.ZAP_SHA256 }}-${{ env.SLT_SHA256 }}-${{ env.SLC_CLI_SHA256 }}-${{ env.JAVA_SHA256 }}-${{ env.PYTHON_SHA256 }}
+
+      - name: Install pinned tools
+        if: steps.tools.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          dl="$RUNNER_TEMP/dl"
+          mkdir -p "$TOOLS" "$dl"
+          fetch() { # url file sha256
+            curl -fsSL --retry 3 -o "$2" "$1"
+            echo "$3  $2" | sha256sum -c -
+          }
+
+          # SLT installer (fails closed until its checksum is pinned above)
+          curl -fsSL --retry 3 -o "$dl/slt.zip" "$SLT_URL"
+          if [ -z "$SLT_SHA256" ]; then
+            echo "::error::SLT_SHA256 is not pinned. Downloaded $SLT_URL has sha256 $(sha256sum "$dl/slt.zip" | cut -d' ' -f1). Check it and pin it in .github/workflows/firmware.yml."
+            exit 1
+          fi
+          echo "$SLT_SHA256  $dl/slt.zip" | sha256sum -c -
+          unzip -q "$dl/slt.zip" -d "$TOOLS/slt"
+          chmod +x "$TOOLS/slt/slt"
+
+          # slc-cli 6.0.23 and its Java 21 / Python runtimes, through SLT, then checked against pinned archives
+          cat > "$dl/tools.slt" <<'EOF'
+          version = "0"
+          [dependency]
+          slc-cli = { version = "6.0.23" }
+          java21 = { version = "21.0.6" }
+          python = { version = "3.10.3" }
+          EOF
+          SLT_CI=true "$TOOLS/slt/slt" install -f "$dl/tools.slt"
+          archive="$HOME/.silabs/slt/installs/archive"
+          sha256sum -c - <<EOF
+          $SLC_CLI_SHA256  $archive/slc-cli-v6.0.23.zip
+          $JAVA_SHA256  $archive/java21-v21.0.6.zip
+          $PYTHON_SHA256  $archive/python-v3.10.3.zip
+          EOF
+
+          # Simplicity SDK 2026.6.1
+          fetch "$SDK_URL" "$dl/sdk.tgz" "$SDK_SHA256"
+          mkdir -p "$TOOLS/simplicity_sdk"
+          tar -xzf "$dl/sdk.tgz" -C "$TOOLS/simplicity_sdk"
+
+          # Arm GNU Toolchain 14.2.Rel1
+          fetch "$GCC_URL" "$dl/gcc.tar.xz" "$GCC_SHA256"
+          tar -xJf "$dl/gcc.tar.xz" -C "$TOOLS"
+          mv "$TOOLS/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi" "$TOOLS/gcc"
+
+          # ZAP
+          fetch "$ZAP_URL" "$dl/zap.zip" "$ZAP_SHA256"
+          unzip -q "$dl/zap.zip" -d "$TOOLS/zap"
+
+          rm -rf "$dl"
+
+      - name: Configure slc
+        run: |
+          set -euo pipefail
+          SLC_DIR="$(dirname "$(find "$HOME/.silabs/slt/installs/archive/slc-cli-v6.0.23" -name slc -type f -perm -u+x | head -1)")"
+          echo "SLC=$SLC_DIR/slc" >> "$GITHUB_ENV"
+          echo "GCC_BIN=$TOOLS/gcc/bin" >> "$GITHUB_ENV"
+          echo "ARM_GCC_DIR=$TOOLS/gcc" >> "$GITHUB_ENV"            # read by the generated Makefile
+          echo "STUDIO_ADAPTER_PACK_PATH=$TOOLS/zap" >> "$GITHUB_ENV" # where slc finds ZAP
+          "$SLC_DIR/slc" configuration --sdk "$TOOLS/simplicity_sdk" --gcc-toolchain "$TOOLS/gcc"
+          "$SLC_DIR/slc" signature trust --sdk "$TOOLS/simplicity_sdk"
+
+      - name: Build
+        run: scripts/build.sh
+
+      - name: Check the image never writes the bootloader, NVM3 or the end of flash
+        run: python3 -I scripts/check_image.py build/gen/build/debug/xiao_mg24_rgb_lamp.hex
+
+      - name: Upload image
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: xiao_mg24_rgb_lamp-${{ github.sha }}
+          path: |
+            build/gen/build/debug/xiao_mg24_rgb_lamp.hex
+            build/gen/build/debug/xiao_mg24_rgb_lamp.s37
+          retention-days: 14
+          if-no-files-found: error
