@@ -14,9 +14,9 @@
 | 2 | 100 Ω resistor, ¼ W or 0603/0805 | red and blue channels (as wired and measured on the bench, 2026-11-23); **never below 100 Ω on red** |
 | 1 | 220 Ω resistor | green channel |
 | 1 | LiPo cell Liter Energy 902025, 3.7 V 400 mAh, red/black leads, **1 cell** (3.7 V nominal; 3.98 V measured 2026-11-24) | **with a protection circuit** (H1), plugged through a JST connector |
-| 1 | 2-pin JST pigtail matching the cell's plug (most likely JST-PH, 2.0 mm pitch: measure, table below) | soldered on BAT+ / BAT− |
+| 1 | 2-pin pigtail matching the cell's plug: **1.25 mm pitch** (measured 2026-11-24), sold as "JST 1.25" (Molex PicoBlade-compatible), or JST-GH if the plug has a latch: table below | soldered on BAT+ / BAT− |
 | 1 | Push button, 4-pin tactile switch (e.g. 6 × 6 mm) | on/off and pairing, on D9; two **diagonal** pins used |
-| – | thin silicone wire (e.g. 28–30 AWG), heat-shrink | |
+| – | thin silicone wire (e.g. 28–30 AWG), heat-shrink, Kapton tape | heat-shrink only on joints in the air, Kapton over pads ("Battery connection", step 3) |
 
 No MOSFET, no external divider, no second charger, no resistor or capacitor on the button (internal pull-up and
 filter).
@@ -147,8 +147,9 @@ mate properly and can make an intermittent or shorted contact.
 
 | Series | Pitch | Notes |
 |---|---|---|
-| **JST-PH** | **2.0 mm** | most common on small LiPo cells (Adafruit, many sellers): the most likely one here |
-| Molex PicoBlade ("JST 1.25") | 1.25 mm | common on very small cells and drones |
+| JST-PH | 2.0 mm | most common on small LiPo cells (Adafruit, many sellers) |
+| **Molex PicoBlade ("JST 1.25")** | **1.25 mm** | common on very small cells and drones. **Measured on this cell's plug (2026-11-24)**. Friction lock only: a small ramp, no latch |
+| JST-GH | 1.25 mm | same pitch, but a **latch** on top of the housing that must be pressed to unplug. Does **not** mate with PicoBlade: check which one the cell has |
 | JST-ZH | 1.5 mm | |
 | JST-SH | 1.0 mm | |
 | JST-XH | 2.5 mm | usually balance plugs of multi-cell packs: if the cell has this, check it really is 1 cell |
@@ -171,7 +172,9 @@ with the real cell, in this order.
 3. The XIAO's battery pads are on the **underside**. Seeed: "The negative terminal of the power supply should be the
    side closest to the USB port, and the positive terminal … is the side away from the USB port" [S1]. Check against
    the silkscreen of your board. Solder the pigtail with the XIAO **unplugged from USB** and the cell **unplugged**,
-   one wire at a time, heat-shrink on each joint, the two wires never touching.
+   one wire at a time, the two wires never touching. **No heat-shrink here**: a pad joint cannot take a sleeve. Cover
+   the two joints with Kapton tape once step 4 has passed. Heat-shrink goes only where a wire joins another wire or a
+   component lead in the air.
 4. **Continuity check, cell still unplugged**: multimeter in continuity mode between the **BAT+ pad** and the socket
    contact that mated with the cell's + pin in step 2: it must beep. Same for BAT− and the other contact. No beep
    between the two contacts (no short).

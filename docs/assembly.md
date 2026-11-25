@@ -33,8 +33,11 @@ Three ways to place the XIAO were compared:
 | USB-C | from underneath (window in the floor) | at an angle through the floor | side slot at mid-height |
 | Verdict | **chosen** | rejected (cell no longer fits) | possible but 3 layers high and poorer radio |
 
-**Female headers: no.** A header strip adds at least 8.5 mm and needs a carrier board under the XIAO. Neither the
-upright nor the flat layout has that height. The XIAO is wired directly on its castellated pads.
+**Female headers: no.** A socketed XIAO needs male pins on the XIAO (plastic spacer ≈ 2.5 mm) in a female header
+(standard 2.54 mm strip: insulator **≈ 8.5 mm** tall; low-profile strips: **≈ 5 mm**; typical catalogue values),
+plus a carrier board under it (1.6 mm). That adds **≈ 12.5 mm** (standard) or **≈ 9 mm** (low-profile) to the
+XIAO's height: upright, its top edge would stand ≈ 14 mm or ≈ 10.5 mm above the 19.5 mm rim instead of 1.5 mm; flat,
+the stack no longer fits at all. The XIAO is wired directly on its castellated pads.
 
 Consequences of the upright choice, to accept or refuse (questions at the end):
 
@@ -104,7 +107,7 @@ on the top and bottom rulers are every 5 mm (−20 … +20); the labels on the l
 | `X` / `U` | XIAO upright; `U` = its USB-C receptacle. Component side towards the wall | x −8.9…+8.9; component face y ≈ −15.5, PCB y −12.3…−11.1 | 0–21.0 |
 | `=` | window in the floor for the USB-C plug, **13 × 7.5 mm**, centred on the receptacle | x −6.5…+6.5, y −17.65…−10.15 | through the floor |
 | `C` | cell, flat on the floor, leads/PCM end to the **west** | x −12.5…+12.5, y −8.1…+11.9 | 0–9.0 |
-| `J` | JST pair (pigtail + cell plug, mated), standing on its edge | x −5.5…+5.5, y +12.9…+17.0 | 0–6 |
+| `J` | JST pair (pigtail + cell plug, mated), standing on its edge. Space sized for a 2.0 mm pair; the measured 1.25 mm pair is smaller and fits inside it | x −5.5…+5.5, y +12.9…+17.0 | 0–6 |
 | `L` | two wall ledges carrying the perfboard (4 mm deep, 5 mm wide) | x ±13.5…±17.5, y 0…+5 | **top at 11.5**, bottom ≈ 7.5 |
 | `~` | pigtail path: XIAO underside BAT pads → west gap → north to `J`, at floor level, under the west ledge | | 0–6 |
 | `*` | cell leads: from the cell's west end → north to `J` | | 0–9 |
@@ -228,6 +231,11 @@ side up. Mark "A1" on the parts side with a pen before starting.
 
 ### 3.1 Parts side (seen from above)
 
+![Perfboard, parts side](img/perfboard-parts-side.svg)
+
+Drawings to scale, generated from the tables of this section by `scripts/draw_perfboard.py` (run it again after any
+change to the layout). The ASCII grids below say the same thing.
+
 ```
       A    B    C    D    E    F    G    H    I    J    K    L
  1    ·    ·    ·    ·    ·    ·    g━━━━━[ 220 Ω ]━━━━━g    ·
@@ -262,6 +270,8 @@ The resistors lie flat, 4 holes apart (10.16 mm), body touching the board. Same 
 below 100 Ω on red** (`wiring.md`).
 
 ### 3.2 Copper side
+
+![Perfboard, copper side seen from below](img/perfboard-copper-side.svg)
 
 Every link (`━`, `┃`) is between **neighbouring** holes. Make it by bending the lead of one part flat onto the next
 pad and soldering both, or with a piece of tinned wire (a resistor lead offcut) for the longer runs. No solder blob
@@ -341,25 +351,36 @@ What the base needs:
 |---|---|---|
 | 1 | Seeed Studio XIAO MG24 | the one already flashed (H12: standard, not Sense) |
 | 1 | LiPo Liter Energy 902025 | 1 cell, 3.7 V, 400 mAh, **with PCM** (H1), charge ≥ 200 mA (H2) |
-| 1 | 2-pin JST pigtail | **same series as the cell's plug**, after measuring the pitch (`wiring.md` table: JST-PH 2.0 mm most likely; PicoBlade 1.25, ZH 1.5, SH 1.0). Wires ≤ 60 mm, 26–28 AWG |
+| 1 | 2-pin pigtail, **1.25 mm pitch** | the mating half of the cell's plug, with wires already crimped: sold as "JST 1.25 2-pin male + female with wires" (Molex PicoBlade-compatible). Pitch measured 1.25 mm (2026-11-24). If the cell's plug has a latch on top it is **JST-GH** instead, which does not mate with PicoBlade: buy GH then. Before soldering, plug it into the cell's plug: it must click home and not wobble. Wires ≤ 60 mm, 28 AWG |
 | 1 | RGB LED, 5 mm, 4 legs, **common cathode** | the Elegoo LED used on the bench |
 | 2 | resistor 100 Ω, ¼ W, through-hole | red and blue (5 % or better) |
 | 1 | resistor 220 Ω, ¼ W, through-hole | green |
 | 1 | tactile switch 6 × 6 mm, 4 pins, through-hole | height to suit the wall, §3.4 (e.g. 6 × 6 × 7 mm) |
 | 1 | prototype board | **single-sided FR4**, 2.54 mm pitch, round pads, 1.6 mm; at least 14 × 6 holes. Not stripboard, not paper (FR2) |
 | 1 m | silicone wire **28 AWG** (≈ 0.9 mm outside) | red, green, blue, black, white, yellow if possible; 30 AWG also works |
-| 10 cm | heat-shrink **Ø 1.5 mm** (2:1) | over the two button-leg joints and any wire-to-wire splice |
-| 10 cm | heat-shrink **Ø 3 mm** (2:1) | optional, to sleeve the 4 board wires together near the XIAO |
+| 10 cm | heat-shrink **Ø 1.5 mm** (2:1) | **only** on joints in the air: the two button-leg joints (step 9), the cap on the D1 lead (step 13), any wire-to-wire splice. Never over a pad ("Where heat-shrink goes", §5) |
+| 10 cm | heat-shrink **Ø 3 mm** (2:1) | optional, to sleeve the 4 board wires together near the XIAO (on the wires, not on a joint) |
 | 1 roll | **Kapton** (polyimide) tape, 10 mm | copper side of the board, pigtail joints on the BAT pads, insulation |
 | – | hot glue (low-temperature if possible) | XIAO, board on ledges, button, wire strain relief. **Never on the cell** |
 | 2 | wall ledges, 4 × 5 mm, 4 mm tall (top at 11.5 mm) | printed with the base, or plastic offcuts glued to the wall |
 | – | thin double-sided tape (≤ 0.2 mm, removable) | under the cell, optional |
-| 0 | female headers | **none**: no height for them (§1) |
+| 0 | female headers | **none**: they would add ≈ 9–12.5 mm of height (§1) |
 
 ## 5. Assembly procedure
 
 Tools: fine-tip soldering iron (≈ 330 °C), flux, multimeter (continuity, Ω, diode, DC V), flush cutters, calipers,
 knife and steel ruler, file, hot glue gun. USB unplugged and cell unplugged unless a step says otherwise.
+
+**Where heat-shrink goes.** Only where a wire joins another wire or a component lead **in the air**; slide it on
+the wire before soldering. In this build that is:
+
+* the two button legs (wire `S` and the yellow D9 wire, step 9);
+* the cap closing the free end of the D1 lead (step 13);
+* any wire-to-wire splice, if you have to lengthen a wire.
+
+**Never** over a pad: not on the XIAO's D0, D2, D3, D9, GND, D1, BAT+ or BAT− pads, not on the perfboard's pads
+(a sleeve cannot close over a pad and hides the joint). Pads are protected by Kapton tape instead: the whole copper
+side of the perfboard (after Check 1) and the two BAT joints (step 22).
 
 ### 5.1 Measure and mock up (nothing soldered, nothing cut)
 
@@ -443,8 +464,9 @@ Then cover the copper side with Kapton.
 
 21. Follow `wiring.md`, **"Battery connection", steps 1–5, exactly** (polarity found with the real cell, pigtail
     soldered on BAT+/BAT− with USB and cell unplugged, continuity check, first plug-in with a positive reading on
-    the pads). Cut the pigtail to ≈ 50 mm before soldering: enough to reach the north of the base along the west
-    side (`~` path, §2.1).
+    the pads). Pigtail: the **1.25 mm** one (§4), checked to mate with the cell's plug before soldering. No
+    heat-shrink on the BAT pads (step 22 uses Kapton). Cut the pigtail to ≈ 50 mm before soldering: enough to reach
+    the north of the base along the west side (`~` path, §2.1).
 22. Cover the two BAT joints with Kapton; a dot of hot glue on the pigtail 5 mm from the pads (on the wires, not on
     the cell).
 

@@ -28,6 +28,7 @@ firmware/
 zigbee2mqtt/xiao_mg24_rgb_lamp.mjs Zigbee2MQTT 2.x external converter
 scripts/build.sh                   generate + build from the command line
 scripts/check_image.py             image safety gate: no byte outside the application area
+scripts/draw_perfboard.py          perfboard drawings (docs/img/*.svg) from the layout in docs/assembly.md §3
 .github/workflows/firmware.yml     CI: pinned tools, build, image gate, 14-day artifact
 docs/                              feasibility, framework, pinout, wiring, assembly, assumptions, flashing, zigbee, bench test, roadmap
 build/                             generated project and binaries (git-ignored, never committed)
